@@ -77,12 +77,26 @@ def run(package, python=None, browser_path=None):
                     expect(page.get_by_role('alert')).to_have_text('Falha Oracle simulada')
                     page.locator('input[type=file]').set_input_files(str(root/'exemplos/nota-demo.xml'))
                     expect(page.get_by_role('heading',name='Nota 12 · Série 1')).to_be_visible()
+                    update_requests = []
+                    page.route('**/api/updates/status',lambda route:route.fulfill(status=200,json=dict(
+                        version=cfg['version'],channel='estavel',enabled=True,available='99.0.0',
+                        notes='Release sintética para teste de aprovação',status='Atualização disponível',restart_required=True)))
+                    def queue(route):
+                        update_requests.append((route.request.url,route.request.post_data_json))
+                        route.fulfill(status=200,json=dict(status='solicitado',restart_required=True))
+                    page.route('**/api/updates/apply',queue)
+                    page.on('dialog',lambda dialog:dialog.accept())
+                    expect(page.get_by_role('button',name='Atualizar agora')).to_be_enabled(timeout=6000)
+                    with page.expect_response(lambda response:response.url.endswith('/api/updates/apply')):
+                        page.get_by_role('button',name='Atualizar agora').click()
+                    assert update_requests[-1][1] == {}
+                    expect(page.get_by_text('Versão disponível: 99.0.0',exact=True)).to_be_visible()
                     page.set_viewport_size(dict(width=390,height=844))
                     button.scroll_into_view_if_needed()
                     assert page.evaluate('document.documentElement.scrollWidth <= window.innerWidth')
                     assert page.evaluate('localStorage.length') == 0
                     assert not errors,errors
-                    print('PASS: production panel, metadata owners/columns/missing, field validation, credential clearing, connection mocked, failure mocked, XML, updates disabled, mobile, no JS errors')
+                    print('PASS: production panel, metadata owners/columns/missing, field validation, credential clearing, connection mocked, failure mocked, XML, updates disabled/enabled approval UI (mocked), mobile, no JS errors')
                     browser.close()
             finally:
                 if (root/'state').exists():

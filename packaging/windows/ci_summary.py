@@ -17,4 +17,7 @@ with summary.open('a', encoding='utf-8') as out:
             for kind in ['failure','error']:
                 error = case.find(kind)
                 if error is not None:
+                    message = (error.text or error.get('message', ''))[-10000:]
+                    escaped = message.replace('%', '%25').replace('\r', '%0D').replace('\n', '%0A')
+                    print(f"::error title={case.get('name')}::{escaped}")
                     out.write(f"### {case.get('classname')}.{case.get('name')}\n\n```text\n{(error.text or '')[-12000:]}\n```\n\n")
