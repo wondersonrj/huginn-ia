@@ -64,3 +64,5 @@ O supervisor, o fluxo de aprovação por tag e os testes de recuperação estão
 em [Atualizações Windows](docs/ATUALIZACOES_WINDOWS.md). O bootstrap de
 **desenvolvimento mantém a atualização desativada** até configuração das chaves,
 aprovação de release e evidência Windows. Push em `main` não faz deploy para clientes.
+
+Procedimento de chaves, canais e aprovação: [Distribuição por GitHub Releases](docs/DISTRIBUICAO_RELEASES.md). Publicar uma release não habilita atualizações de clientes.

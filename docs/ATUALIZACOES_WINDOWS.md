@@ -74,28 +74,11 @@ enviados por terceiros. Versões antigas/falhas são retidas; limpeza é manual.
 
 ## Publicação aprovada
 
-1. O mantenedor cria uma chave Ed25519 de distribuição em ambiente seguro. Coloque
-   somente a chave pública (32 bytes, base64) em
-   `packaging/windows/release-public-key.txt`, por mudança revisada. Cadastre a
-   chave privada (32 bytes, base64) como secret `HUGINN_RELEASE_SIGNING_KEY` no
-   environment GitHub `windows-release-approval`. Nunca publique/registre a privada.
-2. Configure esse environment com revisores obrigatórios e restrição a tags.
-   Proteja tags `v*` e branches. A assinatura protege o manifesto; Authenticode do
-   executável/bootstrap ainda deve ser adotado antes de distribuição comercial.
-3. Após revisão e evidência Windows, crie a tag semântica `vX.Y.Z`. Push da tag
-   executa CI, mas não publica release por si só.
-4. Execute manualmente `Windows portable build` com `release_tag=vX.Y.Z`, canal e
-   `approve_release=true`. O fluxo valida a tag existente, testa, gera um bootstrap
-   habilitado, executa smoke/UI/atualização/rollback no Windows e guarda artefatos.
-5. O job `publish` depende desse sucesso e da aprovação do environment. Ele assina
-   `manifest.json`, verifica correspondência das chaves e publica somente aquela
-   tag existente. Sem chave válida, sem aprovação ou com teste falho, não publica.
-   Reexecutar não sobrescreve uma release existente silenciosamente.
-
-`main` só gera artefatos de CI com atualização desativada. Nenhuma tag de release
-foi criada nesta tarefa. Como faltam chave pública/secret e aprovação do mantenedor,
-a ativação para clientes permanece bloqueada. O atualizador não usa os ZIPs
-versionados em `release/` do branch como fonte de instalação.
+O procedimento atual completo, com chaves separadas por canal, custódia local,
+secrets, revisores e ativação independente da publicação, está em
+[Distribuição por Releases](DISTRIBUICAO_RELEASES.md). O padrão continua desativado.
+Os environments atuais são `windows-release-teste` e `windows-release-estavel`.
+O arquivo de confiança é `packaging/windows/release-public-keys.json`.
 
 ## Evidência de testes
 

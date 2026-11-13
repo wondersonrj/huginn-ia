@@ -143,6 +143,8 @@ def discover(config, current, download=fetch):
         candidates = []
         for release in releases:
             tag = release.get('tag_name', '')
+            if bool(release.get('prerelease')) != (config['channel'] == 'teste'):
+                continue
             if release.get('draft') or not re.fullmatch(r'v(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)', tag):
                 continue
             if version_tuple(tag[1:]) > version_tuple(current):

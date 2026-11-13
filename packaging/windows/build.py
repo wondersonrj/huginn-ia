@@ -18,7 +18,7 @@ RUNTIME_URL = f'https://api.nuget.org/v3-flatcontainer/python/{PYTHON_VERSION}/p
 RUNTIME_SHA256 = '0eb85c2dfccccf1b17352de4c397f69194035b7d37149eacc16f1147d93de3b8'
 
 
-def build(output, version=None, channel=None, enable_updates=False):
+def build(output, version=None, channel=None, enable_updates=False, public_key_file=None):
     config = json.loads((REPO / "packaging/windows/version.json").read_text())
     config["version"] = version or config["version"]
     config["channel"] = channel or config["channel"]
@@ -28,7 +28,8 @@ def build(output, version=None, channel=None, enable_updates=False):
     if config["channel"] not in {"teste", "estavel"}:
         raise SystemExit("Canal inválido")
     config["runtime_id"] = hashlib.sha256((REPO / "packaging/windows/requirements.lock").read_bytes()).hexdigest()
-    config["public_key"] = (REPO / "packaging/windows/release-public-key.txt").read_text().strip()
+    from signing_keys import public_key
+    config["public_key"] = public_key(config["channel"], public_key_file)
     if enable_updates and not config["public_key"]:
         raise SystemExit("Chave pública de release ausente; atualização desativada")
     config["updates_enabled"] = bool(enable_updates)
@@ -76,7 +77,7 @@ def build(output, version=None, channel=None, enable_updates=False):
             else:
                 shutil.copy2(source, root / name)
         (root / 'docs').mkdir()
-        for doc in ['ATUALIZACOES_WINDOWS.md', 'CONEXAO_ORACLE.md']:
+        for doc in ['ATUALIZACOES_WINDOWS.md', 'CONEXAO_ORACLE.md', 'DISTRIBUICAO_RELEASES.md']:
             shutil.copy2(REPO / 'docs' / doc, root / 'docs' / doc)
         (root / 'exemplos').mkdir()
         # Extract only the existing synthetic fixture; never include local config.
@@ -107,5 +108,6 @@ if __name__ == '__main__':
     parser.add_argument('--version')
     parser.add_argument('--channel', choices=['teste', 'estavel'])
     parser.add_argument('--enable-updates', action='store_true')
+    parser.add_argument('--public-key-file', type=Path, help='Explicit public trust anchor for isolated validation builds')
     args = parser.parse_args()
-    build(args.output.resolve(), args.version, args.channel, args.enable_updates)
+    build(args.output.resolve(), args.version, args.channel, args.enable_updates, args.public_key_file)

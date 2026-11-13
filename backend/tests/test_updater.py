@@ -187,7 +187,7 @@ def test_discovery_requires_signed_semantic_release(setup_update):
     _, config, _, artifact = setup_update
     manifest, _ = artifact()
     url='https://github.com/wondersonrj/huginn-ia/releases/download/v0.2.0/manifest.json'
-    releases=[dict(tag_name='main',assets=[]),dict(tag_name='v0.2.0',draft=False,assets=[dict(name='manifest.json',browser_download_url=url)])]
+    releases=[dict(tag_name='main',assets=[]),dict(tag_name='v0.2.0',draft=False,prerelease=True,assets=[dict(name='manifest.json',browser_download_url=url)])]
     def download(target, limit):
         return json.dumps(manifest if target == url else releases).encode()
     assert discover(config, '0.1.0', download) == manifest

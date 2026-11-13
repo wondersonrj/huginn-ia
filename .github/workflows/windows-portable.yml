@@ -13,6 +13,10 @@ on:
         description: 'Approve publishing this tag after Windows validation'
         type: boolean
         default: false
+      enable_client_updates:
+        description: 'Separately approve enabling updates in NEW bootstraps (never modify existing clients)'
+        type: boolean
+        default: false
       channel:
         type: choice
         options: [teste, estavel]
@@ -62,9 +66,12 @@ jobs:
           RELEASE_TAG: ${{ inputs.release_tag }}
           APPROVED: ${{ inputs.approve_release }}
           CHANNEL: ${{ inputs.channel || 'teste' }}
+          ENABLE_UPDATES: ${{ inputs.enable_client_updates }}
         run: |
           if ($env:APPROVED -eq 'true') {
-            python packaging/windows/build.py --version ($env:RELEASE_TAG.Substring(1)) --channel $env:CHANNEL --enable-updates
+            $enable = @()
+            if ($env:ENABLE_UPDATES -eq 'true') { $enable = @('--enable-updates') }
+            python packaging/windows/build.py --version ($env:RELEASE_TAG.Substring(1)) --channel $env:CHANNEL @enable
           } else {
             python packaging/windows/build.py
           }
@@ -91,13 +98,13 @@ jobs:
     needs: portable
     runs-on: windows-latest
     timeout-minutes: 15
-    environment: windows-release-approval
+    environment: windows-release-${{ inputs.channel }}
     permissions:
       contents: write
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ inputs.release_tag }}
+          ref: main
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
