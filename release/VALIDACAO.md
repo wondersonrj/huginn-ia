@@ -2,7 +2,7 @@
 
 Código funcional: ab518de4e57cbb3a164081c931740a7b1eeb040f.
 
-A execução [Windows portable build #9](https://github.com/wondersonrj/huginn-ia/actions/runs/43436410457)
+A execução [Windows portable build](https://github.com/wondersonrj/huginn-ia/actions/runs/43436410457)
 terminou com **Success**. O job [portable](https://github.com/wondersonrj/huginn-ia/actions/runs/43436410457/job/131922559830)
 mostra os passos efetivamente concluídos, registrados em WINDOWS-CI-EVIDENCE.json.
 A publicação de release foi intencionalmente pulada: push em main só faz CI.
