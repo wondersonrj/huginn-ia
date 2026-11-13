@@ -21,9 +21,12 @@ def value(node, name):
 
 def decimal_value(s):
     try:
-        return str(Decimal(s or "0"))
-    except InvalidOperation:
-        return "0"
+        number = Decimal(s or "0")
+    except InvalidOperation as exc:
+        raise ValueError("Valor numérico inválido no XML") from exc
+    if not number.is_finite():
+        raise ValueError("Valor numérico inválido no XML")
+    return str(number)
 
 def parse_nfe(data: bytes) -> dict[str, Any]:
     try:

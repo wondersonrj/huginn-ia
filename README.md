@@ -18,6 +18,28 @@ npm run dev
 ```
 Acesse http://localhost:5173. Documentação API: http://localhost:8000/docs.
 
+## Linux / ambiente na nuvem
+
+Na raiz do repositório:
+```bash
+python3 -m venv .venv
+.venv/bin/python -m pip install -r backend/requirements.txt
+.venv/bin/python -m uvicorn app.main:app --app-dir backend --host 127.0.0.1 --port 8000
+```
+Em outro terminal:
+```bash
+cd frontend
+npm ci
+npm run dev
+```
+Se o cache padrão do npm não for gravável, acrescente `--cache /workspace/.npm-cache` ao `npm ci`.
+
+## Validação
+
+Na raiz, execute `.venv/bin/python -m pytest -q`. Os testes usam XML sintético e a API em memória, sem acesso ao WinThor, Oracle ou SEFAZ. A importação rejeita valores numéricos inválidos ou não finitos com HTTP 422.
+
+Em `frontend`, execute `npm run build` para verificar TypeScript e gerar o build de produção. Para conferir a integração, mantenha os dois serviços acima ativos, importe um XML de demonstração pela interface e confirme os itens exibidos. Um XML inválido deve mostrar uma mensagem de erro e permitir novo envio.
+
 ## Escopo
 - Importação local de XML NF-e (nfeProc ou NFe) e análise estrutural.
 - Identificação de emitente, itens, NCM, CFOP e valores; sinalização de cadastro pendente.
