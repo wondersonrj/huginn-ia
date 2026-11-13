@@ -44,3 +44,23 @@ Actions pode exigir login no GitHub).
 
 Distribuição, instalação inicial, ativação, recuperação e limites de segurança:
 [Atualizações Windows](../docs/ATUALIZACOES_WINDOWS.md).
+
+## Validação posterior de release real — sem ativação de clientes
+
+A [prerelease isolada v0.0.2](https://github.com/wondersonrj/huginn-ia/releases/tag/v0.0.2)
+foi publicada com manifesto Ed25519 e SHA256, por workflow Windows. O teste baixou
+o ZIP real do GitHub, confirmou atualização 0.0.1→0.0.2 e rollback forçado para
+0.0.1 em instalações temporárias. [Execução aprovada](https://github.com/wondersonrj/huginn-ia/actions/runs/43439923220)
+e [evidência verificada](REAL-RELEASE-VALIDATION.json).
+
+A chave era efêmera e foi destruída antes da publicação; não autentica clientes
+existentes. O bootstrap da prerelease está desativado e a versão 0.0.x é inferior
+à instalação atual. **Não distribuir esse pacote de validação para clientes.**
+O ZIP 0.2.0 deste diretório foi preservado sem alteração.
+
+O fluxo de produção e a custódia das chaves duráveis estão preparados em
+[Distribuição por Releases](../docs/DISTRIBUICAO_RELEASES.md). Ainda exigem as
+ações administrativas descritas ali: environments/revisores, públicas revisadas,
+secrets por canal, homologação com chaves duráveis e aprovação explícita da
+produção/ativação. Não houve assinatura Authenticode ou confirmação humana no
+cliente; o ensaio real ocorreu no CI Windows com aprovação programática isolada.
