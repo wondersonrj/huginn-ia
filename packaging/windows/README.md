@@ -43,3 +43,17 @@ usam apenas `127.0.0.1:8000`; a janela fica aberta e Ctrl+C encerra o servidor.
 Credenciais são usadas em memória durante uma tentativa e não persistidas.
 Uma conta Oracle com somente leitura e rede até o listener 19c são requisitos.
 Consulte `LEIA-ME.txt` e `docs/CONEXAO_ORACLE.md` para diagnóstico e limites.
+
+## Supervisor de atualização (bootstrap 1)
+
+O layout atual possui `versions/X.Y.Z/` para aplicação e assets, enquanto
+runtime, supervisor e estado ficam fora dessa pasta versionada. O entrypoint
+continua sendo `INICIAR_HUGINN.bat`. O build normal gera um bootstrap de teste
+com atualização desativada; `--enable-updates` requer chave pública de release.
+A publicação habilitada exige tag semântica e aprovação manual, conforme
+[Atualizações Windows](../../docs/ATUALIZACOES_WINDOWS.md).
+
+Testes adicionais: `update_smoke.py ZIP` verifica A→B e rollback com processos
+reais e assinaturas efêmeras; `browser_smoke.py ZIP` usa Playwright e mocks para
+Oracle. Nenhum desses testes acessa Oracle. `--python` nos scripts permite
+validação Linux e não constitui evidência de execução Windows.

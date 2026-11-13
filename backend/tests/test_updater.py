@@ -37,7 +37,11 @@ def setup_update(tmp_path):
                 z.writestr(prefix + path, '# synthetic test payload')
             z.writestr(prefix + 'version.json', json.dumps(dict(version=version, runtime_id='test-runtime', channel='teste')))
             if bad:
-                z.writestr(bad, 'unsafe')
+                info = zipfile.ZipInfo('placeholder')
+                # Preserve adversarial raw names; Windows ZipInfo otherwise normalizes them on write.
+                info.filename = bad
+                info.orig_filename = bad
+                z.writestr(info, 'unsafe')
         data = buffer.getvalue()
         signed = dict(version=version, channel='teste',
                       url=f'https://github.com/wondersonrj/huginn-ia/releases/download/v{version}/HUGINN-IA-Windows-x64.zip',

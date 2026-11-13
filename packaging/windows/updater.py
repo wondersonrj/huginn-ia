@@ -175,10 +175,12 @@ def extract_payload(archive, stage, version):
         for member in bundle.infolist():
             count += 1
             total += member.file_size
-            name = member.filename
+            # ZipInfo normalizes backslashes on Windows and truncates NULs.
+            # Validate the original archived name before any such normalization.
+            name = member.orig_filename
             parts = PurePosixPath(name).parts
             normalized = name.casefold().rstrip('/')
-            if (not name.startswith('HUGINN-IA-Windows-x64/') or count > 20000 or total > 1024**3 or '\\' in name or name.startswith('/')
+            if (name != member.filename or not name.startswith('HUGINN-IA-Windows-x64/') or count > 20000 or total > 1024**3 or '\\' in name or name.startswith('/')
                     or any(p in {'..', '.'} or ':' in p or p.endswith((' ', '.')) or p.split('.')[0].upper() in {'CON', 'PRN', 'AUX', 'NUL', *(f'COM{i}' for i in range(1, 10)), *(f'LPT{i}' for i in range(1, 10))} for p in name.rstrip('/').split('/'))
                     or normalized in seen or stat.S_ISLNK(member.external_attr >> 16)
                     or member.flag_bits & 1):
