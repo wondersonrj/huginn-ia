@@ -1,0 +1,88 @@
+{
+  "run_url": "https://github.com/wondersonrj/huginn-ia/actions/runs/43436410457",
+  "job_url": "https://github.com/wondersonrj/huginn-ia/actions/runs/43436410457/job/131922559830",
+  "source_commit": "ab518de4e57cbb3a164081c931740a7b1eeb040f",
+  "runner": "windows-latest",
+  "conclusion": "success",
+  "checks": [
+    {
+      "name": "Set up job",
+      "conclusion": "success"
+    },
+    {
+      "name": "Run actions/checkout@v4",
+      "conclusion": "success"
+    },
+    {
+      "name": "Validate release identity",
+      "conclusion": "success"
+    },
+    {
+      "name": "Run actions/setup-python@v5",
+      "conclusion": "success"
+    },
+    {
+      "name": "Run actions/setup-node@v4",
+      "conclusion": "success"
+    },
+    {
+      "name": "Run python -m pip install -r backend/requirements.txt",
+      "conclusion": "success"
+    },
+    {
+      "name": "Run npm ci",
+      "conclusion": "success"
+    },
+    {
+      "name": "Run npm run build",
+      "conclusion": "success"
+    },
+    {
+      "name": "Run python -m pytest -q --junitxml=release/backend-tests.xml",
+      "conclusion": "success"
+    },
+    {
+      "name": "Backend test evidence",
+      "conclusion": "success"
+    },
+    {
+      "name": "Build portable ZIP",
+      "conclusion": "success"
+    },
+    {
+      "name": "Run python packaging/windows/smoke.py release/HUGINN-IA-Windows-x64.zip",
+      "conclusion": "success"
+    },
+    {
+      "name": "Run python packaging/windows/update_smoke.py release/HUGINN-IA-Windows-x64.zip",
+      "conclusion": "success"
+    },
+    {
+      "name": "Browser tests on Windows",
+      "conclusion": "success"
+    },
+    {
+      "name": "Run actions/upload-artifact@v4",
+      "conclusion": "success"
+    },
+    {
+      "name": "Post Run actions/setup-node@v4",
+      "conclusion": "success"
+    },
+    {
+      "name": "Post Run actions/setup-python@v5",
+      "conclusion": "success"
+    },
+    {
+      "name": "Post Run actions/checkout@v4",
+      "conclusion": "success"
+    },
+    {
+      "name": "Complete job",
+      "conclusion": "success"
+    }
+  ],
+  "real_oracle_validated": false,
+  "real_published_release_upgrade_validated": false,
+  "native_human_approval_validated": false
+}
