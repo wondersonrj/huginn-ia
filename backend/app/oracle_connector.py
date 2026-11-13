@@ -1,5 +1,5 @@
 """Conector Oracle direto: somente leitura, sem guardar credenciais em disco."""
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 import os
 import re
 from typing import Any
@@ -10,7 +10,7 @@ class OracleConfig:
     port: int
     service: str
     user: str
-    password: str
+    password: str = field(repr=False)
 
     @classmethod
     def from_env(cls):
@@ -35,8 +35,12 @@ def connect_readonly(cfg: OracleConfig):
     cfg.validate()
     import oracledb
     dsn = oracledb.makedsn(cfg.host, cfg.port, service_name=cfg.service)
-    connection = oracledb.connect(user=cfg.user, password=cfg.password, dsn=dsn)
+    connection = oracledb.connect(
+        user=cfg.user, password=cfg.password, dsn=dsn,
+        tcp_connect_timeout=5, retry_count=0,
+    )
     try:
+        connection.call_timeout = 5000
         with connection.cursor() as cur:
             cur.execute("SET TRANSACTION READ ONLY")
         return connection
@@ -50,7 +54,8 @@ def check_connection(cfg: OracleConfig | None = None) -> dict[str, Any]:
     try:
         with con.cursor() as cur:
             cur.execute("SELECT 1 FROM DUAL")
-            ok = cur.fetchone()[0] == 1
+            row = cur.fetchone()
+            ok = row is not None and row[0] == 1
         return {"conectado": ok, "modo": "somente leitura", "driver": "python-oracledb Thin"}
     finally:
         con.close()

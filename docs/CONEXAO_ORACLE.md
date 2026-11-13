@@ -18,8 +18,22 @@ Não coloque senhas em commits, prints, logs ou mensagens de chat.
 2. O conector inicia transação read-only, além das restrições do usuário.
 3. Não habilitar endpoints de consulta SQL arbitrária.
 4. O teste de conexão executa apenas SELECT 1 FROM DUAL.
-5. Este módulo ainda não está exposto como endpoint HTTP; credenciais permanecem apenas no processo local.
+5. O endpoint local `POST /api/oracle/testar` recebe host, porta, serviço, usuário e senha apenas para a tentativa atual; não persiste credenciais nem retorna mensagens internas do driver.
 6. Antes de conectar a um cliente real, validar permissões, topologia de rede e tabelas WinThor.
 
 ## TOTVS Cloud
 Será implementado em etapa posterior conforme acesso autorizado e restrições do ambiente.
+
+## Tela de configuração e teste
+
+Com backend e frontend iniciados conforme README, abra a seção **Conexão Oracle direta** no painel (ou use o menu lateral). Preencha Host ou IP, Porta (1521 por padrão), Service Name, Usuário de leitura e Senha. Clique em **Testar conexão Oracle**. A senha é apagada após cada tentativa; os campos não são gravados em disco ou localStorage. Alterar um campo invalida o resultado anterior. O teste não mantém uma conexão aberta nem configura uma integração persistente.
+
+O backend deve rodar na máquina com acesso TCP ao listener. Este endpoint é destinado ao desenvolvimento local, aceita clientes de loopback e origens locais conhecidas; não o exponha à Internet. Uma implantação compartilhada requer autenticação e HTTPS. Use uma conta autorizada pelo DBA com somente SELECT. O formulário não carrega senhas do ambiente; a configuração por variáveis continua disponível para uso direto do módulo Python.
+
+O teste limita a conexão TCP a 5 segundos, sem novas tentativas, e cada chamada Oracle a 5 segundos. O navegador encerra a espera após 20 segundos; interromper essa espera não cancela imediatamente uma operação já iniciada no servidor. A sessão sempre é fechada após o teste, inclusive em falhas, sem commit.
+
+## Validação automatizada
+
+Na raiz: `.venv/bin/python -m pytest -q`. Os testes do conector usam mocks do driver para conferir ordem exata dos comandos de leitura, fechamento em sucesso/falha, ausência de commit e proteção de credenciais nas respostas. Não exigem nem acessam um Oracle real. Em `frontend`, execute `npm run build`.
+
+Uma conexão real só pode ser confirmada com endereço, Service Name, conta de leitura e acesso de rede fornecidos com segurança no ambiente do operador. Não envie senhas em chat ou commits.

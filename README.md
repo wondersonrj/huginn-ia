@@ -1,5 +1,5 @@
 # HUGINN IA — MVP NF-e
-Plataforma de análise preliminar de NF-e para TOTVS WinThor. **Demo sem acesso ao Oracle ou à SEFAZ.**
+Plataforma de análise preliminar de NF-e para TOTVS WinThor. **Análise de XML com teste opcional de conexão Oracle somente leitura; sem acesso à SEFAZ.**
 
 ## Iniciar
 Requer Python 3.12+ e Node 20+.
@@ -44,7 +44,8 @@ Em `frontend`, execute `npm run build` para verificar TypeScript e gerar o build
 - Importação local de XML NF-e (nfeProc ou NFe) e análise estrutural.
 - Identificação de emitente, itens, NCM, CFOP e valores; sinalização de cadastro pendente.
 - Dados de demonstração identificados. **Não há comparação real com WinThor.**
-- Sem consultas SEFAZ, sem credenciais, sem SQL livre e sem escrita no Oracle.
+- Sem consultas SEFAZ, sem SQL livre e sem escrita no Oracle.
+- Tela de teste Oracle direto, sem persistir credenciais e sem consultar tabelas WinThor. Consulte [Conexão Oracle](docs/CONEXAO_ORACLE.md).
 
 ## Próximos passos
 Validar schema real do WinThor com consultas parametrizadas em usuário read-only, mapear fornecedores/produtos e integrar Distribuição DF-e com certificado e controle de NSU. Adicionar autenticação e isolamento multi-tenant antes de produção.

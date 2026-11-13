@@ -2,12 +2,52 @@ from decimal import Decimal, InvalidOperation
 from io import BytesIO
 from typing import Any
 from defusedxml import ElementTree as ET
-from fastapi import FastAPI, File, HTTPException, UploadFile
+from fastapi import FastAPI, File, HTTPException, UploadFile, Request
 from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel, ConfigDict, Field, SecretStr, ValidationError
+from starlette.concurrency import run_in_threadpool
+from app.oracle_connector import OracleConfig, check_connection
 
 app = FastAPI(title="HUGINN IA API", version="0.1.0")
 app.add_middleware(CORSMiddleware, allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"], allow_credentials=False, allow_methods=["GET", "POST"], allow_headers=["*"])
 MAX_XML = 5 * 1024 * 1024
+
+
+class OracleConnectionRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid", strict=True)
+    host: str = Field(min_length=1, max_length=253)
+    port: int = Field(default=1521, ge=1, le=65535)
+    service: str = Field(min_length=1, max_length=255)
+    user: str = Field(min_length=1, max_length=128)
+    password: SecretStr = Field(min_length=1, max_length=1024)
+
+
+@app.post("/api/oracle/testar")
+async def testar_oracle(request: Request):
+    # Local development only: no arbitrary SQL or persistent credentials.
+    if not request.client or request.client.host not in {"127.0.0.1", "::1"}:
+        raise HTTPException(403, "Teste Oracle disponível apenas no ambiente local")
+    origin = request.headers.get("origin")
+    if origin and origin not in {
+        "http://localhost:5173", "http://127.0.0.1:5173",
+        "http://localhost:8000", "http://127.0.0.1:8000",
+    }:
+        raise HTTPException(403, "Origem não permitida")
+    try:
+        payload = OracleConnectionRequest.model_validate(await request.json())
+        cfg = OracleConfig(payload.host, payload.port, payload.service,
+                           payload.user, payload.password.get_secret_value())
+        cfg.validate()
+    except (ValidationError, ValueError):
+        # Do not echo submitted fields or driver errors containing credentials.
+        raise HTTPException(422, "Informe host, porta, serviço, usuário e senha válidos") from None
+    try:
+        result = await run_in_threadpool(check_connection, cfg)
+    except Exception:
+        raise HTTPException(502, "Não foi possível conectar ao Oracle. Verifique rede, serviço e credenciais de leitura.") from None
+    if not result["conectado"]:
+        raise HTTPException(502, "Oracle não confirmou o teste de leitura")
+    return result
 
 def child(node, name):
     return next((c for c in node if c.tag.rsplit("}", 1)[-1] == name), None) if node is not None else None
