@@ -140,3 +140,11 @@ chaves duráveis; revisar/publicar suas públicas; cadastrar secrets de cada can
 aprovar tags/releases de homologação/produção; aprovar bootstrap/ativação de cada
 cliente; testar confirmação humana; e, se exigido para distribuição comercial,
 obter certificado Authenticode e integrar assinatura de executáveis.
+
+## Preparação administrativa automatizada
+
+Para preparar apenas o canal de testes sem comandos na estação do titular, use
+[Preparação pelo GitHub](PREPARAR_TESTES_PELO_GITHUB.md). Esse fluxo cria cofres e
+proteções e abre PR de pública, aguardando aprovações humanas. Não altera produção.
+O acesso administrativo temporário deve ser autorizado no environment protegido;
+nenhuma credencial administrativa está disponível na sessão de desenvolvimento.

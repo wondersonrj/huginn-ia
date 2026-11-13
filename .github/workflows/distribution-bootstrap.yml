@@ -1,0 +1,92 @@
+name: Prepare test distribution
+run-name: Prepare test distribution — manual approval required
+on:
+  workflow_dispatch:
+    inputs:
+      reviewer:
+        description: 'GitHub login of an authorized collaborator who reviews test releases'
+        type: string
+        required: true
+concurrency:
+  group: huginn-distribution-administration
+  cancel-in-progress: false
+permissions:
+  contents: read
+jobs:
+  prepare:
+    if: github.repository == 'wondersonrj/huginn-ia' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: distribution-bootstrap
+    outputs:
+      public_key: ${{ steps.prepare.outputs.public_key }}
+      fingerprint: ${{ steps.prepare.outputs.fingerprint }}
+      pr_url: ${{ steps.prepare.outputs.pr_url }}
+      pr_sha: ${{ steps.prepare.outputs.pr_sha }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install cryptography==50.0.2
+      - name: Preserve protections, create test vaults and public-key PR
+        id: prepare
+        env:
+          GH_TOKEN: ${{ secrets.HUGINN_DISTRIBUTION_ADMIN_TOKEN }}
+          REVIEWER: ${{ inputs.reviewer }}
+        run: python scripts/distribution/prepare_test_channel.py prepare --reviewer "$REVIEWER"
+      - name: Remove one-time administrative secret, including on failure
+        if: always()
+        env:
+          GH_TOKEN: ${{ secrets.HUGINN_DISTRIBUTION_ADMIN_TOKEN }}
+        run: python scripts/distribution/prepare_test_channel.py cleanup
+  verify-test-key:
+    needs: prepare
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    environment: windows-release-teste
+    permissions:
+      contents: read
+      statuses: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install cryptography==50.0.2
+      - name: Verify actual vault key, never expose it
+        env:
+          HUGINN_RELEASE_SIGNING_KEY: ${{ secrets.HUGINN_RELEASE_SIGNING_KEY }}
+          EXPECTED_PUBLIC_KEY: ${{ needs.prepare.outputs.public_key }}
+          PUBLIC_PR_SHA: ${{ needs.prepare.outputs.pr_sha }}
+          GH_TOKEN: ${{ github.token }}
+        run: python scripts/distribution/verify_test_key.py
+
+  verify-recovery-key:
+    needs: prepare
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    environment: windows-signing-recovery
+    permissions:
+      contents: read
+      statuses: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install cryptography==50.0.2
+      - name: Verify actual vault key, never expose it
+        env:
+          HUGINN_RELEASE_SIGNING_KEY: ${{ secrets.HUGINN_TEST_SIGNING_KEY_RECOVERY }}
+          STATUS_CONTEXT: test-signing-recovery
+          EXPECTED_PUBLIC_KEY: ${{ needs.prepare.outputs.public_key }}
+          PUBLIC_PR_SHA: ${{ needs.prepare.outputs.pr_sha }}
+          GH_TOKEN: ${{ github.token }}
+        run: python scripts/distribution/verify_test_key.py

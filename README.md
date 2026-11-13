@@ -66,3 +66,5 @@ em [Atualizações Windows](docs/ATUALIZACOES_WINDOWS.md). O bootstrap de
 aprovação de release e evidência Windows. Push em `main` não faz deploy para clientes.
 
 Procedimento de chaves, canais e aprovação: [Distribuição por GitHub Releases](docs/DISTRIBUICAO_RELEASES.md). Publicar uma release não habilita atualizações de clientes.
+
+Preparação administrativa automatizada do canal de testes: [cliques no GitHub](docs/PREPARAR_TESTES_PELO_GITHUB.md). Chaves privadas ficam nos cofres protegidos, sem artefatos; produção e clientes permanecem desativados.

@@ -1,0 +1,34 @@
+name: Prepare test release
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'New semantic version X.Y.Z; greater than installed bootstrap version'
+        type: string
+        required: true
+        default: '0.3.0'
+permissions:
+  contents: read
+concurrency:
+  group: huginn-test-release-preparation
+  cancel-in-progress: false
+jobs:
+  prepare-test-release:
+    if: github.repository == 'wondersonrj/huginn-ia' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write
+      actions: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Prepare test tag from passed main; never enable clients or production
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ inputs.version }}
+        run: python scripts/distribution/prepare_test_release.py --version "$VERSION"

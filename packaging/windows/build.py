@@ -77,7 +77,7 @@ def build(output, version=None, channel=None, enable_updates=False, public_key_f
             else:
                 shutil.copy2(source, root / name)
         (root / 'docs').mkdir()
-        for doc in ['ATUALIZACOES_WINDOWS.md', 'CONEXAO_ORACLE.md', 'DISTRIBUICAO_RELEASES.md']:
+        for doc in ['ATUALIZACOES_WINDOWS.md', 'CONEXAO_ORACLE.md', 'DISTRIBUICAO_RELEASES.md', 'PREPARAR_TESTES_PELO_GITHUB.md']:
             shutil.copy2(REPO / 'docs' / doc, root / 'docs' / doc)
         (root / 'exemplos').mkdir()
         # Extract only the existing synthetic fixture; never include local config.

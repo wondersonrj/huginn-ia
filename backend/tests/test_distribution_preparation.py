@@ -1,0 +1,158 @@
+import base64
+import copy
+import json
+from pathlib import Path
+import sys
+from urllib.parse import unquote
+from unittest.mock import patch
+
+import pytest
+
+sys.path.insert(0,str(Path(__file__).resolve().parents[2]/'scripts/distribution'))
+import prepare_test_channel as prep
+import verify_test_key
+
+
+def protected():
+    return dict(protection_rules=[dict(type='required_reviewers',prevent_self_review=True,reviewers=[dict(type='User',reviewer=dict(id=9))])],deployment_branch_policy=dict(custom_branch_policies=True,protected_branches=False))
+
+
+class FakeAPI:
+    def __init__(self):
+        self.environments={prep.BOOTSTRAP:protected()}
+        self.policies={prep.BOOTSTRAP:[dict(name='main',type='branch')]}
+        self.secrets={};self.writes=[];self.private=[];self.rules=[];self.pulls=[]
+        self.mapping=dict(teste='',estavel='PRODUCTION-PUBLIC-UNCHANGED')
+        self.branch_mapping={};self.calls=[]
+    def request(self,method,path,data=None,optional=False):
+        self.calls.append((method,path,copy.deepcopy(data)))
+        if path=='/apps/github-actions':return dict(id=15368,slug='github-actions')
+        if path.startswith('/users/'):return dict(id=12)
+        if '/collaborators/' in path:return dict(permission='write')
+        if path==prep.BASE+'/git/ref/heads/main':return dict(object=dict(sha='a'*40))
+        if path.startswith(prep.BASE+'/git/ref/heads/setup/'):return None
+        if path==prep.BASE+'/git/refs':return {}
+        if path.startswith(prep.BASE+'/contents/'):
+            if method=='PUT':
+                self.branch_mapping[data['branch']]=json.loads(base64.b64decode(data['content']));return {}
+            ref=unquote(path.partition('?ref=')[2]) or 'main'
+            mapping=self.branch_mapping.get(ref,self.mapping)
+            return dict(content=base64.b64encode(json.dumps(mapping).encode()).decode(),sha='file-sha')
+        if path==prep.BASE+'/pulls' and method=='POST':
+            result=dict(html_url='https://github.com/wondersonrj/huginn-ia/pull/99',head=dict(ref=data['head'],sha='b'*40))
+            self.pulls.append(result);return result
+        if path==prep.BASE+'/rulesets' and method=='POST':
+            value=copy.deepcopy(data)|dict(id=len(self.rules)+1);self.rules.append(value);return value
+        if '/rulesets/' in path:return next(r for r in self.rules if str(r['id'])==path.rsplit('/',1)[-1])
+        if '/environments/' in path:
+            tail=path.split('/environments/')[1];name=tail.split('/')[0]
+            if tail.endswith('/deployment-branch-policies'):
+                self.policies.setdefault(name,[]).append(data);return data
+            if '/secrets/' in tail and method=='DELETE':return None
+            if method=='GET':return self.environments.get(name)
+            if method=='PUT':
+                self.environments[name]=dict(protection_rules=[dict(type='required_reviewers',prevent_self_review=data['prevent_self_review'],reviewers=[dict(type=r['type'],reviewer=dict(id=r['id'])) for r in data['reviewers']]),dict(type='wait_timer',wait_timer=data['wait_timer'])],deployment_branch_policy=data['deployment_branch_policy'])
+                return self.environments[name]
+        raise AssertionError((method,path))
+    def items(self,path,key=None):
+        if path.startswith(prep.BASE+'/rulesets'):return self.rules
+        if path.startswith(prep.BASE+'/pulls'):return self.pulls
+        name=path.split('/environments/')[1].split('/')[0]
+        if path.endswith('/secrets'):return [dict(name=n) for n in self.secrets.get(name,set())]
+        return self.policies.get(name,[])
+    def set_secret(self,environment,name,value):
+        self.writes.append((environment,name));self.private.append(value)
+        self.secrets.setdefault(environment,set()).add(name)
+
+
+def test_new_test_key_is_only_in_protected_vaults_and_public_pr():
+    api=FakeAPI();report=prep.prepare(api,'reviewer')
+    assert set(api.writes)=={(prep.TEST,prep.SIGNING_SECRET),(prep.RECOVERY,prep.RECOVERY_SECRET)}
+    assert len(api.private)==2 and api.private[0]==api.private[1]
+    assert not report['production_enabled'] and not report['clients_enabled']
+    mapping=next(iter(api.branch_mapping.values()))
+    assert mapping['estavel']=='PRODUCTION-PUBLIC-UNCHANGED'
+    assert mapping['teste']==report['public_key']
+    assert api.private[0].decode() not in json.dumps(report)
+    assert all(not p.startswith(prep.BASE+'/environments/windows-release-estavel') for _,p,_ in api.calls)
+    assert not any(m in {'PATCH','DELETE'} and '/rulesets/' in p for m,p,_ in api.calls)
+
+
+def test_rerun_never_rotates_or_overwrites_secrets():
+    api=FakeAPI();first=prep.prepare(api,'reviewer');writes=len(api.private)
+    second=prep.prepare(api,'reviewer')
+    assert first['public_key']==second['public_key']
+    assert len(api.private)==writes and len(api.rules)==2
+
+
+def test_existing_reviewers_and_wait_time_are_preserved():
+    api=FakeAPI();api.environments[prep.TEST]=protected()
+    api.environments[prep.TEST]['protection_rules'].append(dict(type='wait_timer',wait_timer=20))
+    api.policies[prep.TEST]=[dict(name='main',type='branch')]
+    prep.prepare(api,'other-reviewer')
+    allowed,prevent=prep.reviewers(api.environments[prep.TEST])
+    assert allowed==[dict(type='User',id=9)] and prevent
+    assert any(r.get('wait_timer')==20 for r in api.environments[prep.TEST]['protection_rules'])
+
+
+def test_unprotected_admin_environment_fails_before_mutation():
+    api=FakeAPI();api.environments[prep.BOOTSTRAP]['protection_rules']=[]
+    with pytest.raises(prep.PreparationError,match='Proteja'):prep.prepare(api,'reviewer')
+    assert not any(m!='GET' for m,_,_ in api.calls) and not api.private
+
+
+def test_existing_unknown_secret_is_never_replaced():
+    api=FakeAPI();api.environments[prep.TEST]=protected();api.policies[prep.TEST]=[dict(name='main',type='branch')]
+    api.secrets[prep.TEST]={prep.SIGNING_SECRET}
+    with pytest.raises(prep.PreparationError,match='existente'):prep.prepare(api,'reviewer')
+    assert not api.private
+
+
+def test_extra_branch_access_is_not_silently_changed():
+    api=FakeAPI();api.environments[prep.TEST]=protected();api.policies[prep.TEST]=[dict(name='*',type='branch')]
+    with pytest.raises(prep.PreparationError,match='políticas adicionais'):prep.prepare(api,'reviewer')
+    assert not any(m!='GET' for m,_,_ in api.calls)
+
+
+def test_rule_comparison_never_accepts_bypass_or_exclusions():
+    desired=prep.ruleset_payloads(15368)[0]
+    actual=copy.deepcopy(desired);actual['server_metadata']='ignored'
+    assert prep.contains(actual,desired)
+    actual['bypass_actors']=[dict(actor_type='RepositoryRole',actor_id=5,bypass_mode='always')]
+    assert not prep.contains(actual,desired)
+    actual=copy.deepcopy(desired);actual['conditions']['ref_name']['exclude']=['main']
+    assert not prep.contains(actual,desired)
+
+
+def test_vault_proof_reports_failure_without_secrets(tmp_path,monkeypatch,capsys):
+    monkeypatch.setenv('HUGINN_RELEASE_SIGNING_KEY','invalid-test-placeholder')
+    monkeypatch.setenv('EXPECTED_PUBLIC_KEY','invalid-test-placeholder')
+    monkeypatch.setenv('GITHUB_STEP_SUMMARY',str(tmp_path/'summary'))
+    with patch('verify_test_key.post_status') as status:
+        assert verify_test_key.main()==1
+        status.assert_called_once_with('failure')
+    assert 'invalid-test-placeholder' not in capsys.readouterr().out
+
+
+def test_vault_proof_verifies_private_without_exposing_it(tmp_path,monkeypatch,capsys):
+    from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+    from cryptography.hazmat.primitives import serialization
+    key=Ed25519PrivateKey.generate()
+    raw=base64.b64encode(key.private_bytes(serialization.Encoding.Raw,serialization.PrivateFormat.Raw,serialization.NoEncryption())).decode()
+    public=base64.b64encode(key.public_key().public_bytes(serialization.Encoding.Raw,serialization.PublicFormat.Raw)).decode()
+    monkeypatch.setenv('HUGINN_RELEASE_SIGNING_KEY',raw)
+    monkeypatch.setenv('EXPECTED_PUBLIC_KEY',public)
+    monkeypatch.setenv('GITHUB_STEP_SUMMARY',str(tmp_path/'summary'))
+    with patch('verify_test_key.post_status') as status:
+        assert verify_test_key.main()==0
+        status.assert_called_once_with('success')
+    assert raw not in capsys.readouterr().out and raw not in (tmp_path/'summary').read_text()
+
+
+def test_altered_named_ruleset_is_not_replaced():
+    api=FakeAPI();prep.prepare(api,'reviewer')
+    api.rules[0]['bypass_actors']=[dict(actor_type='RepositoryRole',actor_id=5,bypass_mode='always')]
+    writes=len(api.private)
+    with pytest.raises(prep.PreparationError,match='Ruleset'):prep.prepare(api,'reviewer')
+    assert len(api.private)==writes
+    assert not any(m=='PUT' and '/rulesets/' in p for m,p,_ in api.calls)
