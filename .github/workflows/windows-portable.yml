@@ -52,6 +52,9 @@ jobs:
       - run: npm run build
         working-directory: frontend
       - run: python -m pytest -q --junitxml=release/backend-tests.xml
+      - name: Backend test evidence
+        if: always()
+        run: python packaging/windows/ci_summary.py
       - name: Build portable ZIP
         shell: pwsh
         env:
@@ -74,6 +77,7 @@ jobs:
           python -m playwright install chromium
           python packaging/windows/browser_smoke.py release/HUGINN-IA-Windows-x64.zip
       - uses: actions/upload-artifact@v4
+        if: always()
         with:
           name: HUGINN-IA-Windows-x64
           path: |
