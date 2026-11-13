@@ -4,6 +4,26 @@ import os
 import re
 from typing import Any
 
+
+def connection_diagnostic(exc: Exception) -> str:
+    """Return only known, actionable messages, never raw driver error text."""
+    error = exc.args[0] if exc.args else None
+    code = getattr(error, "full_code", "")
+    messages = {
+        "ORA-01017": "Usuário ou senha inválidos. Confirme as credenciais com o DBA.",
+        "ORA-28000": "Conta Oracle bloqueada. Solicite desbloqueio ao DBA.",
+        "ORA-28001": "Senha Oracle expirada. Solicite a atualização ao DBA.",
+        "ORA-12514": "Service Name não reconhecido pelo listener. Confirme o serviço com o DBA.",
+        "DPY-6001": "Service Name não reconhecido pelo listener. Confirme o serviço com o DBA.",
+        "ORA-12541": "Listener indisponível. Verifique host, porta e firewall.",
+        "DPY-6005": "Não foi possível alcançar o listener. Verifique host, porta, rede e firewall.",
+        "DPY-3010": "Versão do servidor incompatível com o driver Thin. Este pacote é destinado ao Oracle 19c.",
+        "DPY-3015": "Verificador de senha incompatível com Thin. Consulte o DBA sobre autenticação compatível.",
+        "DPY-4011": "Conexão encerrada. Verifique com o DBA a política de criptografia/autenticação do Oracle.",
+        "DPY-4024": "Tempo de resposta excedido. Verifique a rede e a disponibilidade do Oracle.",
+    }
+    return messages.get(code, "Não foi possível conectar ao Oracle. Verifique rede, serviço e credenciais de leitura.")
+
 @dataclass(frozen=True)
 class OracleConfig:
     host: str

@@ -1,0 +1,48 @@
+HUGINN IA - Windows portatil x64
+
+1. Requer Windows 10/11 x64 e um navegador moderno. Nao requer instalacao
+   de Python, Node.js ou Oracle Client. Nao requer administrador.
+2. Extraia TODO o ZIP para uma pasta local gravavel (pode conter espacos).
+3. De duplo clique em INICIAR_HUGINN.bat. A interface abrira automaticamente
+   em http://127.0.0.1:8000. Se o navegador nao abrir, digite esse endereco.
+4. Mantenha a janela aberta. Ctrl+C encerra o servidor. Fechar o navegador
+   nao encerra o servidor. Se a porta 8000 estiver ocupada, encerre o programa
+   que a utiliza e tente novamente.
+
+ORACLE 19c
+Na secao Conexao Oracle direta, preencha host/IP, porta (normalmente 1521),
+Service Name (nao SID), usuario SOMENTE LEITURA autorizado pelo DBA e senha.
+Clique em Testar conexao Oracle. A senha e limpa apos cada tentativa. Nenhum
+campo e salvo em arquivo ou localStorage. Nao digite credenciais em chat.
+O computador precisa alcancar diretamente o listener (rede/VPN corporativa).
+O driver Thin nao precisa de OCI/Instant Client. A compatibilidade de rede,
+autenticacao e criptografia deve ser confirmada com o DBA.
+
+O teste so executa SET TRANSACTION READ ONLY e SELECT 1 FROM DUAL e fecha a
+sessao sem commit. Nao ha SQL livre, DML, DDL ou consulta de tabelas WinThor.
+Uma resposta positiva confirma apenas o teste DUAL; nao valida mapeamento,
+permissoes em tabelas ou integracao fiscal. Use exclusivamente conta de leitura.
+
+DIAGNOSTICO
+- Host/porta/rede: confira IP/DNS, firewall e listener com o DBA.
+- Service Name: confirme o nome registrado no listener, nao use SID.
+- Usuario/senha: confirme conta, bloqueio e expiracao com o DBA.
+- Thin incompatibilidade: consulte DBA sobre verificadores de senha e politica
+  de criptografia; nao desative seguranca para contornar o erro.
+- Tempo excedido: confira conectividade. A espera do navegador expira em 20s;
+  isso nao cancela imediatamente uma operacao Oracle ja iniciada.
+- Falha de DLL/inicializacao: use Windows x64 e extraia o pacote completo.
+
+XML
+Use exemplos/nota-demo.xml para verificar a importacao. E um XML sintetico
+para demonstracao estrutural, sem validade fiscal e sem envio a SEFAZ.
+
+LIMITES DE VALIDACAO
+O pacote foi gerado em Linux com runtime e wheels Windows x64. Consulte
+BUILD-INFO.json para versoes e checksum da origem do runtime. Testes Linux
+nao substituem executar este ZIP no Windows. Nao foi validada uma conexao
+com Oracle real. Nao ha credenciais reais neste pacote.
+
+Nao exponha este servidor local a rede/Internet. Nao ha autenticacao de
+usuarios nesta versao demonstrativa. As licencas do Python estao em
+runtime/LICENSE.txt; as de dependencias ficam nos respectivos *.dist-info.

@@ -135,3 +135,37 @@ def test_oracle_endpoint_unconfirmed_result():
     with patch('app.main.check_connection', return_value={'conectado': False}):
         response = TestClient(app, client=('127.0.0.1', 1234)).post('/api/oracle/testar', json=payload())
     assert response.status_code == 502
+
+
+@pytest.mark.parametrize(('code', 'expected'), [
+    ('ORA-01017', 'Usuário ou senha inválidos'),
+    ('DPY-6001', 'Service Name'),
+    ('ORA-28000', 'bloqueada'),
+    ('DPY-6005', 'listener'),
+    ('DPY-3015', 'Verificador de senha'),
+])
+def test_safe_connection_diagnostics(code, expected):
+    from types import SimpleNamespace
+    from app.oracle_connector import connection_diagnostic
+    error = RuntimeError(SimpleNamespace(full_code=code, message='secret password'))
+    result = connection_diagnostic(error)
+    assert expected in result
+    assert 'secret password' not in result
+
+
+def test_unknown_diagnostic_never_echoes_exception():
+    from app.oracle_connector import connection_diagnostic
+    assert 'fake-test-password' not in connection_diagnostic(RuntimeError('fake-test-password'))
+
+
+def test_production_frontend_served_when_built():
+    from pathlib import Path
+    from app.main import web_dir
+    if not web_dir.is_dir():
+        pytest.skip('Build frontend before testing static assets')
+    response = TestClient(app).get('/')
+    assert response.status_code == 200
+    assert 'id="root"' in response.text
+    import re
+    asset = re.search(r'src="([^"]+\.js)"', response.text).group(1)
+    assert TestClient(app).get(asset).status_code == 200

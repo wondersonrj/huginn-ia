@@ -6,7 +6,9 @@ from fastapi import FastAPI, File, HTTPException, UploadFile, Request
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, ConfigDict, Field, SecretStr, ValidationError
 from starlette.concurrency import run_in_threadpool
-from app.oracle_connector import OracleConfig, check_connection
+from starlette.staticfiles import StaticFiles
+from pathlib import Path
+from app.oracle_connector import OracleConfig, check_connection, connection_diagnostic
 
 app = FastAPI(title="HUGINN IA API", version="0.1.0")
 app.add_middleware(CORSMiddleware, allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"], allow_credentials=False, allow_methods=["GET", "POST"], allow_headers=["*"])
@@ -43,8 +45,8 @@ async def testar_oracle(request: Request):
         raise HTTPException(422, "Informe host, porta, serviço, usuário e senha válidos") from None
     try:
         result = await run_in_threadpool(check_connection, cfg)
-    except Exception:
-        raise HTTPException(502, "Não foi possível conectar ao Oracle. Verifique rede, serviço e credenciais de leitura.") from None
+    except Exception as exc:
+        raise HTTPException(502, connection_diagnostic(exc)) from None
     if not result["conectado"]:
         raise HTTPException(502, "Oracle não confirmou o teste de leitura")
     return result
@@ -128,3 +130,9 @@ async def importar_nfe(file: UploadFile = File(...)):
         return parse_nfe(content)
     except ValueError as exc:
         raise HTTPException(422, str(exc)) from exc
+
+
+# A portable build serves React and the API from one loopback origin.
+web_dir = Path(__file__).resolve().parents[2] / "frontend" / "dist"
+if web_dir.is_dir():
+    app.mount("/", StaticFiles(directory=web_dir, html=True), name="frontend")

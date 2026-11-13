@@ -1,0 +1,5 @@
+fastapi==0.162.5
+uvicorn==0.54.0
+defusedxml==0.7.1
+python-multipart==0.0.33
+oracledb==3.4.2

@@ -49,3 +49,11 @@ Em `frontend`, execute `npm run build` para verificar TypeScript e gerar o build
 
 ## Próximos passos
 Validar schema real do WinThor com consultas parametrizadas em usuário read-only, mapear fornecedores/produtos e integrar Distribuição DF-e com certificado e controle de NSU. Adicionar autenticação e isolamento multi-tenant antes de produção.
+
+## Windows portátil
+
+Pacote e instruções: [Empacotamento Windows x64](packaging/windows/README.md).
+Extraia o ZIP completo e abra `INICIAR_HUGINN.bat`; a interface e a API iniciam
+juntas em `http://127.0.0.1:8000`, com abertura automática do navegador.
+Não exige instalação de Python, Node.js ou Oracle Client no cliente.
+O teste Oracle não grava no WinThor e não persiste credenciais.
