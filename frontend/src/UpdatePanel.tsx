@@ -1,16 +1,25 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
 type UpdateState = { version:string; channel:string; enabled:boolean; available:string|null; notes:string; status:string; restart_required:boolean }
 export function UpdatePanel() {
   const [state, setState] = useState<UpdateState|null>(null)
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
+  const previousVersion = useRef<string|null>(null)
   useEffect(() => {
     let active = true
     const refresh = async () => {
       try {
         const r = await fetch('/api/updates/status')
-        if (r.ok && active) setState(await r.json())
+        if (r.ok && active) {
+          const next: UpdateState = await r.json()
+          if (previousVersion.current && previousVersion.current !== next.version) {
+            window.location.reload() // Drop old assets and all in-memory Oracle credentials.
+            return
+          }
+          previousVersion.current = next.version
+          setState(next)
+        }
       } catch { /* Expected while restarting; keep the last status visible. */ }
     }
     void refresh()

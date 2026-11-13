@@ -91,12 +91,19 @@ def run(package, python=None, browser_path=None):
                         page.get_by_role('button',name='Atualizar agora').click()
                     assert update_requests[-1][1] == {}
                     expect(page.get_by_text('Versão disponível: 99.0.0',exact=True)).to_be_visible()
+                    page.get_by_label('Senha',exact=True).fill('synthetic-test-only')
+                    page.unroute('**/api/updates/status')
+                    page.route('**/api/updates/status',lambda route:route.fulfill(status=200,json=dict(
+                        version='99.0.0',channel='estavel',enabled=True,available=None,notes='',status='Instalada',restart_required=False)))
+                    with page.expect_navigation(wait_until='load'):
+                        page.wait_for_timeout(2500)
+                    expect(page.get_by_label('Senha',exact=True)).to_have_value('')
                     page.set_viewport_size(dict(width=390,height=844))
                     button.scroll_into_view_if_needed()
                     assert page.evaluate('document.documentElement.scrollWidth <= window.innerWidth')
                     assert page.evaluate('localStorage.length') == 0
                     assert not errors,errors
-                    print('PASS: production panel, metadata owners/columns/missing, field validation, credential clearing, connection mocked, failure mocked, XML, updates disabled/enabled approval UI (mocked), mobile, no JS errors')
+                    print('PASS: production panel, metadata owners/columns/missing, field validation, credential clearing, connection mocked, failure mocked, XML, updates disabled/enabled approval UI/reload (mocked), mobile, no JS errors')
                     browser.close()
             finally:
                 if (root/'state').exists():
