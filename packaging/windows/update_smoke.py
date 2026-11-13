@@ -56,9 +56,11 @@ def run(package, python=None):
             return dict(signed=signed,signature=base64.b64encode(key.sign(canonical)).decode()), data
         try:
             supervisor.start(old)
+            print(f"::notice title=Update integration::Version {old} started on {sys.platform}", flush=True)
             manifest, payload = release(good)
             engine.apply(manifest, supervisor.stop, supervisor.start, lambda data: True, lambda url: payload)
             assert engine.current() == good
+            print(f"::notice title=Update integration::Version {good} activated on {sys.platform}", flush=True)
             manifest, payload = release(bad, broken=True)
             try:
                 engine.apply(manifest, supervisor.stop, supervisor.start, lambda data: True, lambda url: payload)
@@ -70,6 +72,9 @@ def run(package, python=None):
             assert (engine.state / 'preferences.json').read_text() == '{"theme":"dark"}'
             assert not (engine.state / 'journal.json').exists()
             print(f'PASS: real processes {old}->{good}, failed {bad}->{good} rollback, version health and preferences; platform={sys.platform}')
+        except Exception as error:
+            print(f"::error title=Update integration::{type(error).__name__}: {error}", flush=True)
+            raise
         finally:
             supervisor.stop()
             if supervisor.socket is not None:

@@ -22,6 +22,7 @@ permissions:
 jobs:
   portable:
     runs-on: windows-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
         with:
@@ -89,6 +90,7 @@ jobs:
     if: github.event_name == 'workflow_dispatch' && inputs.approve_release && inputs.release_tag != ''
     needs: portable
     runs-on: windows-latest
+    timeout-minutes: 15
     environment: windows-release-approval
     permissions:
       contents: write

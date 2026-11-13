@@ -88,7 +88,8 @@ class Supervisor:
             descriptor = self.socket.fileno()
             self.process = subprocess.Popen(command + ['--socket-fd', str(descriptor)], cwd=self.root,
                                             env=env, pass_fds=(descriptor,))
-        for _ in range(200):
+        deadline = time.monotonic() + 20
+        while time.monotonic() < deadline:
             if self.process.poll() is not None:
                 raise UpdateError('Servidor encerrou durante a inicialização.')
             try:
