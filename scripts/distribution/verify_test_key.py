@@ -5,6 +5,7 @@ import json
 import os
 import re
 import urllib.request
+from prepare_test_channel import NoRedirect
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 
@@ -20,7 +21,7 @@ def post_status(state):
         target_url='https://github.com/wondersonrj/huginn-ia/actions/runs/'+os.environ['GITHUB_RUN_ID'])).encode()
     request=urllib.request.Request('https://api.github.com/repos/wondersonrj/huginn-ia/statuses/'+sha,data=data,method='POST',headers={
         'Authorization':'Bearer '+os.environ['GH_TOKEN'],'Accept':'application/vnd.github+json','User-Agent':'HUGINN-vault-verification'})
-    with urllib.request.urlopen(request,timeout=30):pass
+    with urllib.request.build_opener(NoRedirect()).open(request,timeout=30):pass
 
 
 def main():

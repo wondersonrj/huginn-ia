@@ -26,6 +26,11 @@ PUBLIC_FILE='packaging/windows/release-public-keys.json'
 class PreparationError(Exception):pass
 
 
+class NoRedirect(urllib.request.HTTPRedirectHandler):
+    def redirect_request(self,req,fp,code,msg,headers,newurl):
+        raise PreparationError('Redirecionamento administrativo recusado; credenciais não serão encaminhadas.')
+
+
 class API:
     def __init__(self,token):
         if not token:raise PreparationError('Cadastre o token no environment distribution-bootstrap.')
@@ -39,7 +44,7 @@ class API:
             'Authorization':'Bearer '+self.token,'Accept':'application/vnd.github+json',
             'X-GitHub-Api-Version':'2022-11-28','User-Agent':'HUGINN-distribution-preparation'})
         try:
-            with urllib.request.urlopen(request,timeout=30) as response:
+            with urllib.request.build_opener(NoRedirect()).open(request,timeout=30) as response:
                 raw=response.read()
                 return json.loads(raw) if raw else None
         except urllib.error.HTTPError as error:
@@ -61,7 +66,7 @@ class API:
         # Official gh client encrypts to the environment's GitHub public key.
         env=os.environ.copy();env['GH_TOKEN']=self.token
         result=subprocess.run(['gh','secret','set',name,'--repo',REPOSITORY,'--env',environment],
-                              input=value,capture_output=True,env=env)
+                              input=value,capture_output=True,env=env,timeout=60)
         if result.returncode:raise PreparationError(f'Não foi possível guardar {name} em {environment}; saída suprimida por segurança.')
 
 

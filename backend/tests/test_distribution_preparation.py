@@ -156,3 +156,10 @@ def test_altered_named_ruleset_is_not_replaced():
     with pytest.raises(prep.PreparationError,match='Ruleset'):prep.prepare(api,'reviewer')
     assert len(api.private)==writes
     assert not any(m=='PUT' and '/rulesets/' in p for m,p,_ in api.calls)
+
+
+def test_admin_credentials_are_never_forwarded_on_redirect():
+    handler=prep.NoRedirect()
+    request=prep.urllib.request.Request('https://api.github.com/repos/wondersonrj/huginn-ia/environments/distribution-bootstrap',headers={'Authorization':'Bearer test-only-not-a-real-token'})
+    with pytest.raises(prep.PreparationError,match='Redirecionamento'):
+        handler.redirect_request(request,None,302,'Found',{},'https://untrusted.example/')
