@@ -59,7 +59,14 @@ def main():
     print('Oracle: teste somente leitura, sem salvar credenciais.')
     threading.Thread(target=open_when_ready, daemon=True).start()
     try:
-        server.run(sockets=[sock])
+        if sys.platform == 'win32':
+            # The supervisor retains the listener across worker versions. A
+            # Proactor/IOCP association cannot migrate between worker processes.
+            # Select avoids binding that shared listener to a dead worker IOCP.
+            import asyncio
+            asyncio.run(server.serve(sockets=[sock]), loop_factory=asyncio.SelectorEventLoop)
+        else:
+            server.run(sockets=[sock])
     finally:
         sock.close()
     return 0
