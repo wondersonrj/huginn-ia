@@ -1,5 +1,5 @@
 """One-time administrative preparation. No private material in files/logs/outputs.
-Additive rulesets, reviewer preservation and fail-closed secret reuse.
+Explicit single-administrator authorization, protected PRs and fail-closed secret reuse.
 """
 import argparse
 import base64
@@ -21,6 +21,8 @@ ADMIN_SECRET='HUGINN_DISTRIBUTION_ADMIN_TOKEN'
 SIGNING_SECRET='HUGINN_RELEASE_SIGNING_KEY'
 RECOVERY_SECRET='HUGINN_TEST_SIGNING_KEY_RECOVERY'
 PUBLIC_FILE='packaging/windows/release-public-keys.json'
+ADMINISTRATOR='wondersonrj'
+CONFIRMATION='PREPARAR TESTES SEM PRODUCAO'
 
 
 class PreparationError(Exception):pass
@@ -37,7 +39,7 @@ class API:
         self.token=token
 
     def request(self,method,path,data=None,optional=False):
-        if not (path.startswith(BASE+'/') or path.startswith('/users/') or path=='/apps/github-actions'):
+        if not (path.startswith(BASE+'/') or path.startswith('/users/') or path in {'/apps/github-actions','/user'}):
             raise PreparationError('Endpoint administrativo não autorizado.')
         body=json.dumps(data).encode() if data is not None else None
         request=urllib.request.Request('https://api.github.com'+path,data=body,method=method,headers={
@@ -88,37 +90,36 @@ def inspect_environment(api,name):
     return environment
 
 
-def require_bootstrap_guard(api):
+def require_bootstrap_guard(api,administrator_id):
     environment=inspect_environment(api,BOOTSTRAP)
     allowed,prevent=reviewers(environment or {})
     policy=(environment or {}).get('deployment_branch_policy') or {}
-    if not allowed or not prevent or not policy.get('custom_branch_policies'):
-        raise PreparationError('Proteja distribution-bootstrap com revisor obrigatório, Prevent self-review e somente a branch main antes de executar.')
+    if allowed!=[dict(type='User',id=administrator_id)] or prevent or not policy.get('custom_branch_policies'):
+        raise PreparationError('Configure distribution-bootstrap com somente o administrador como Required reviewer, Prevent self-review desmarcado e apenas main.')
     policies=api.items(BASE+'/environments/'+BOOTSTRAP+'/deployment-branch-policies','branch_policies')
     if not any(p['name']=='main' and p.get('type','branch')=='branch' for p in policies):
         raise PreparationError('distribution-bootstrap precisa permitir main explicitamente.')
 
 
 def protect_environment(api,name,existing,reviewer):
-    # Existing reviewers and wait times are retained. A new reviewer is not
-    # added to an existing list, since doing so could broaden approval authority.
-    allowed,_=reviewers(existing or {})
+    # Explicitly authorized migration of TEST/RECOVERY to a sole administrator.
+    # Production, wait times and custom protection rules remain untouched.
     wait=max([r.get('wait_timer',0) for r in (existing or {}).get('protection_rules',[]) if r['type']=='wait_timer'] or [0])
-    api.request('PUT',BASE+'/environments/'+name,dict(wait_timer=wait,prevent_self_review=True,
-        reviewers=allowed or [dict(type='User',id=reviewer)],
+    api.request('PUT',BASE+'/environments/'+name,dict(wait_timer=wait,prevent_self_review=False,
+        reviewers=[dict(type='User',id=reviewer)],
         deployment_branch_policy=dict(protected_branches=False,custom_branch_policies=True)))
     policies=api.items(BASE+'/environments/'+name+'/deployment-branch-policies','branch_policies')
     if not any(p['name']=='main' and p.get('type','branch')=='branch' for p in policies):
         api.request('POST',BASE+'/environments/'+name+'/deployment-branch-policies',dict(name='main',type='branch'))
 
 
-def ruleset_payloads(actions_app_id):
+def ruleset_payloads(actions_app_id,legacy=False):
     common=dict(enforcement='active',bypass_actors=[])
-    return [dict(common,name='HUGINN protected main v1',target='branch',
+    return [dict(common,name='HUGINN protected main v1' if legacy else 'HUGINN protected main single-admin v2',target='branch',
         conditions=dict(ref_name=dict(include=['refs/heads/main'],exclude=[])),rules=[
             dict(type='deletion'),dict(type='non_fast_forward'),
-            dict(type='pull_request',parameters=dict(required_approving_review_count=1,dismiss_stale_reviews_on_push=True,
-                 require_code_owner_review=False,require_last_push_approval=True,required_review_thread_resolution=True)),
+            dict(type='pull_request',parameters=dict(required_approving_review_count=1 if legacy else 0,dismiss_stale_reviews_on_push=True,
+                 require_code_owner_review=False,require_last_push_approval=legacy,required_review_thread_resolution=True)),
             dict(type='required_status_checks',parameters=dict(strict_required_status_checks_policy=True,
                  required_status_checks=[dict(context='portable',integration_id=actions_app_id)]))]),
         dict(common,name='HUGINN immutable release tags v1',target='tag',
@@ -134,15 +135,51 @@ def contains(actual,expected):
     return actual==expected
 
 
+def named(payload):
+    import copy
+    result=copy.deepcopy(payload)
+    canonical=json.dumps(payload,sort_keys=True,separators=(',',':'))
+    result['name']+=' '+hashlib.sha256(canonical.encode()).hexdigest()[:8]
+    return result
+
+
+def migrate_legacy_main(api,existing,actions_app_id):
+    old=named(ruleset_payloads(actions_app_id,legacy=True)[0])
+    match=next((r for r in existing if r['name']==old['name']),None)
+    if not match:return None
+    detail=api.request('GET',BASE+f'/rulesets/{match["id"]}')
+    pull=next((r for r in detail.get('rules',[]) if r['type']=='pull_request'),{})
+    parameters=pull.get('parameters',{})
+    migrated=json.loads(json.dumps(old))
+    for rule in migrated['rules']:
+        if rule['type']=='pull_request':
+            rule['parameters']['required_approving_review_count']=0
+            rule['parameters']['require_last_push_approval']=False
+    if contains(detail,migrated):return match['id']
+    if (not contains(detail,old) or parameters.get('required_approving_review_count')!=1
+            or parameters.get('require_last_push_approval') is not True or parameters.get('required_reviewers')):
+        raise PreparationError('Regra legada foi personalizada; migração manual necessária, sem substituir proteções desconhecidas.')
+    payload={k:detail[k] for k in ['name','target','enforcement','bypass_actors','conditions','rules']}
+    import copy
+    payload=copy.deepcopy(payload)
+    for rule in payload['rules']:
+        if rule['type']=='pull_request':
+            rule['parameters']['required_approving_review_count']=0
+            rule['parameters']['require_last_push_approval']=False
+    # Keep the old name as a migration marker. All other rules remain intact.
+    api.request('PUT',BASE+f'/rulesets/{match["id"]}',payload)
+    return match['id']
+
+
 def add_protections(api):
     app=api.request('GET','/apps/github-actions')
     if app.get('slug')!='github-actions':raise PreparationError('Identidade do provedor de checks inválida.')
     existing=api.items(BASE+'/rulesets')
-    ids=[]
-    for desired in ruleset_payloads(app['id']):
-        canonical=json.dumps(desired,sort_keys=True,separators=(',',':'))
-        # Never update/delete unknown existing rules. Add a separate stronger set.
-        desired['name']+=' '+hashlib.sha256(canonical.encode()).hexdigest()[:8]
+    migrated=migrate_legacy_main(api,existing,app['id'])
+    ids=[migrated] if migrated else []
+    for policy in ruleset_payloads(app['id']):
+        # Only the exactly identified managed v1 main rule can be migrated.
+        desired=named(policy)
         match=next((r for r in existing if r['name']==desired['name']),None)
         if match:
             detail=api.request('GET',BASE+f'/rulesets/{match["id"]}')
@@ -183,14 +220,18 @@ def publish_public_pr(api,mapping,public,fingerprint):
 
 Public SHA256 fingerprint: `{fingerprint}`.
 
-Review the bootstrap workflow and its protected `verify-test-key` job before merging. The job must confirm the GitHub environment secret matches this key. No private material is in the PR, artifacts or outputs. A separate reviewer and portable CI approval are required. Do not bypass rules or auto-merge this trust change.'''))
+Review the bootstrap workflow and its protected `verify-test-key` job before merging. The job must confirm the GitHub environment secret matches this key. No private material is in the PR, artifacts or outputs. The sole administrator must explicitly review this trust change after portable CI and both vault checks pass. A PR is required; self-approval of the PR is not required. Do not bypass rules or auto-merge this trust change.'''))
 
 
-def prepare(api,reviewer_login):
-    require_bootstrap_guard(api)
-    user=api.request('GET','/users/'+urllib.parse.quote(reviewer_login,safe=''))
-    permission=api.request('GET',BASE+'/collaborators/'+urllib.parse.quote(reviewer_login,safe='')+'/permission')['permission']
-    if permission not in {'admin','maintain','write'}:raise PreparationError('O revisor deve ser colaborador com permissão write/maintain/admin.')
+def prepare(api,administrator_login,confirmation):
+    if administrator_login!=ADMINISTRATOR or confirmation!=CONFIRMATION:
+        raise PreparationError('Administrador ou confirmação explícita inválidos; nenhuma alteração foi realizada.')
+    user=api.request('GET','/users/'+ADMINISTRATOR)
+    authenticated=api.request('GET','/user')
+    permission=api.request('GET',BASE+'/collaborators/'+ADMINISTRATOR+'/permission')['permission']
+    if authenticated['id']!=user['id'] or permission!='admin':
+        raise PreparationError('O token deve pertencer ao único administrador autorizado do repositório.')
+    require_bootstrap_guard(api,user['id'])
     test=inspect_environment(api,TEST);recovery=inspect_environment(api,RECOVERY)
     mapping=public_mapping(api)
     names=secret_names(api,TEST) if test else set()
@@ -231,15 +272,16 @@ def prepare(api,reviewer_login):
 
 
 def main():
-    p=argparse.ArgumentParser();p.add_argument('action',choices=['prepare','cleanup']);p.add_argument('--reviewer')
+    p=argparse.ArgumentParser();p.add_argument('action',choices=['prepare','cleanup']);p.add_argument('--confirmation')
     a=p.parse_args()
     try:
         api=API(os.environ.get('GH_TOKEN'))
         if a.action=='cleanup':
             api.request('DELETE',BASE+'/environments/'+BOOTSTRAP+'/secrets/'+ADMIN_SECRET,optional=True)
             return 0
-        if not a.reviewer:raise PreparationError('Informe o login do revisor autorizado.')
-        report=prepare(api,a.reviewer)
+        if os.environ.get('GITHUB_ACTOR')!=ADMINISTRATOR or os.environ.get('GITHUB_REPOSITORY')!=REPOSITORY:
+            raise PreparationError('Execute manualmente como administrador autorizado na main deste repositório.')
+        report=prepare(api,ADMINISTRATOR,a.confirmation)
         if os.environ.get('GITHUB_OUTPUT'):
             with open(os.environ['GITHUB_OUTPUT'],'a') as out:
                 for key in ['public_key','fingerprint','pr_url','pr_sha']:out.write(f'{key}={report[key]}\n')
@@ -247,7 +289,7 @@ def main():
             with open(os.environ['GITHUB_STEP_SUMMARY'],'a') as out:
                 out.write('## Canal de testes preparado, sem ativação\n\n')
                 out.write(f"Fingerprint público: `{report['fingerprint']}`\n\nPR para revisão: {report['pr_url'] or 'pública já revisada'}\n\n")
-                out.write('Aguarde verify-test-key e revisão independente do PR. Produção e clientes permanecem desativados.\n')
+                out.write('Aguarde os dois checks dos cofres e portable; confira e mescle manualmente o PR como administrador. Produção e clientes permanecem desativados.\n')
         print('Preparação concluída; somente metadados públicos foram emitidos.')
         return 0
     except PreparationError as error:print(str(error));return 1

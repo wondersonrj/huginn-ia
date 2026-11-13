@@ -21,9 +21,8 @@ permanecem imutáveis durante atualização; preserve toda a pasta `state/`.
 
 No GitHub, configure **Settings → Environments**:
 
-- `windows-release-teste`: revisores de homologação e secret de teste.
-- `windows-release-estavel`: revisores de produção, aprovação obrigatória e
-  prevenção de autoaprovação. Escolha pelo menos um revisor diferente do operador.
+- `windows-release-teste`: aprovação manual pelo administrador único e secret de teste.
+- `windows-release-estavel`: aprovação explícita de produção, somente quando autorizada em uma tarefa posterior. Não é ativado nem reconfigurado pela preparação de testes. No modelo de administrador único, não há obrigação de um segundo revisor.
 
 Restrinja esses environments à branch protegida `main`: o workflow é disparado
 em main e recebe a tag aprovada como entrada. Restringir apenas a tags bloquearia
@@ -66,8 +65,7 @@ python packaging/windows/signing_keys.py import-public --channel estavel --path 
 ```
 
 Revise e publique **somente** `packaging/windows/release-public-keys.json`.
-Confirme os fingerprints SHA256 das públicas por um canal independente com os
-revisores. O antigo arquivo `release-public-key.txt` é legado e não é usado.
+O administrador deve conferir os fingerprints SHA256 das públicas contra as verificações dos cofres no workflow antes de mesclar o PR. O antigo arquivo `release-public-key.txt` é legado e não é usado.
 A chave pública fica embarcada no bootstrap do respectivo canal; uma chave de
 outro canal não autentica atualizações. Rotação de chave ou runtime exige novo
 bootstrap aprovado, sem trocar a confiança silenciosamente em clientes antigos.
@@ -135,7 +133,7 @@ sem rede, mantém a instalação atual. A rede Oracle é um requisito independen
 
 ## Pendências que código não pode aprovar sozinho
 
-Criar/proteger environments e tags; escolher revisores; gerar e custodiar as
+Criar/proteger environments e tags; confirmar pessoalmente as execuções; gerar e custodiar as
 chaves duráveis; revisar/publicar suas públicas; cadastrar secrets de cada canal;
 aprovar tags/releases de homologação/produção; aprovar bootstrap/ativação de cada
 cliente; testar confirmação humana; e, se exigido para distribuição comercial,

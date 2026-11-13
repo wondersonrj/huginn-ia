@@ -2,6 +2,10 @@ name: Prepare test release
 on:
   workflow_dispatch:
     inputs:
+      confirm_test_release:
+        description: 'Explicitly approve a test release with client updates DISABLED'
+        type: boolean
+        default: false
       version:
         description: 'New semantic version X.Y.Z; greater than installed bootstrap version'
         type: string
@@ -14,7 +18,7 @@ concurrency:
   cancel-in-progress: false
 jobs:
   prepare-test-release:
-    if: github.repository == 'wondersonrj/huginn-ia' && github.ref == 'refs/heads/main'
+    if: github.repository == 'wondersonrj/huginn-ia' && github.ref == 'refs/heads/main' && github.actor == github.repository_owner
     runs-on: ubuntu-latest
     timeout-minutes: 15
     permissions:
@@ -31,4 +35,5 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           VERSION: ${{ inputs.version }}
+          CONFIRM_TEST_RELEASE: ${{ inputs.confirm_test_release }}
         run: python scripts/distribution/prepare_test_release.py --version "$VERSION"

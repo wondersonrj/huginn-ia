@@ -1,10 +1,11 @@
-# Preparação do canal de testes sem comandos locais
+# Preparação do canal de testes — administrador único
 
 O workflow `Prepare test distribution` automatiza proteções adicionais, criação
 dos cofres de testes/recuperação, geração Ed25519 em memória, armazenamento dos
 segredos via stdin do gh, criação de PR só com a pública e verificação criptográfica
 dos dois cofres. Não grava privadas em disco, logs, artefatos ou outputs. Não troca
-chaves existentes nem altera regras desconhecidas. Remove o secret administrativo
+chaves existentes nem altera regras desconhecidas. Migra somente a regra legada
+HUGINN reconhecida para o modelo de administrador único, mantendo PR e CI obrigatórios. Remove o secret administrativo
 usado nessa preparação, inclusive em falha; o token deve ser revogado pelo titular.
 
 Produção permanece bloqueada: nenhuma chave de produção é gerada, seu environment
@@ -25,8 +26,8 @@ configurada no futuro. A instalação existente e o ZIP distribuído não são t
    Gere e copie o token para o próximo formulário, nunca para código/chat.
 4. No repositório, **Settings → Environments → New environment**, nome
    `distribution-bootstrap`, **Configure environment**.
-5. Ative **Required reviewers**, escolha um colaborador confiável, marque
-   **Prevent self-review** e salve. Desmarque **Allow administrators to bypass
+5. Ative **Required reviewers**, selecione somente **wondersonrj**, deixe
+   **Prevent self-review desmarcado** e salve. Desmarque **Allow administrators to bypass
    configured protection rules** quando essa opção estiver disponível.
 6. Em **Deployment branches and tags**, selecione **Selected branches and tags →
    Add deployment branch or tag rule → Branch**, padrão `main`, e adicione.
@@ -38,23 +39,23 @@ não concedeu. Também não expõe a configuração de bypass de administradores
 REST/GraphQL; esse ajuste de interface continua manual. Não use token clássico
 com acesso a todos os repositórios nem crie o token como secret aberto do repositório.
 
-Se não houver outro revisor, o titular deve adicionar alguém em **Settings →
-Collaborators → Add people** (permissão Write basta) e aguardar aceitação. O autor
-da execução não pode aprovar o próprio deployment; não desative essa proteção.
+O próprio administrador confirma e aprova as execuções. Não é necessário convidar
+outra pessoa. O token deve pertencer a `wondersonrj`; a automação rejeita outro
+ator, token de outro titular, ref diferente de main ou confirmação ausente.
 
 ### B. Executar e aprovar a preparação
 
 1. **Actions → Prepare test distribution → Run workflow**; branch `main`;
-   campo `reviewer`: login do colaborador autorizado; clique **Run workflow**.
-2. Um revisor elegível deve abrir a execução → **Review deployments**, selecionar
+   campo `confirmation`: digite exatamente `PREPARAR TESTES SEM PRODUCAO`; clique **Run workflow**.
+2. O próprio administrador deve abrir a execução → **Review deployments**, selecionar
    `distribution-bootstrap` e **Approve and deploy**.
-3. O workflow adiciona regras de main (PR, revisão independente, CI `portable`, sem
+3. O workflow adiciona regras de main (PR obrigatório, zero aprovações de terceiros, CI `portable`, sem
    force-push/exclusão) e torna tags `v*` imutáveis (sem atualização/exclusão).
-   Não substitui regras pré-existentes. Criação de tags continua possível, mas
+   Só a regra antiga HUGINN exatamente reconhecida pode migrar de 1 aprovação para 0, com aprovação do último push desativada; checks, proibição de bypass, force-push e exclusão são preservados. Regras desconhecidas/personalizadas não são sobrescritas. Criação de tags continua possível, mas
    releases só aceitam commits pertencentes à main revisada e aprovação humana.
 4. Ele cria `windows-release-teste` e `windows-signing-recovery`, restritos a main,
-   com revisores obrigatórios e prevenção de autoaprovação. Se um environment já
-   existir, preserva revisores/espera/customizações; políticas de branches mais
+   com aprovação manual do administrador (`wondersonrj`) e autoaprovação de deployment permitida. A mudança dos revisores de teste/recuperação é autorizada pela confirmação explícita; produção não é alterada. Se um environment já
+   existir, preserva espera/customizações; políticas de branches mais
    amplas ou estado de chave desconhecido causam parada segura para revisão.
 5. Em **Settings → Environments → windows-release-teste** e
    **windows-signing-recovery**, desmarque **Allow administrators to bypass
@@ -75,8 +76,7 @@ por procedimento aprovado; nunca há rotação silenciosa em clientes.
    `teste` em `packaging/windows/release-public-keys.json`; produção intacta.
 2. Compare o fingerprint do resumo de **Prepare test distribution** com os jobs
    de verificação. Aguarde CI `portable`, `test-signing-vault` e
-   `test-signing-recovery` verdes. Um revisor diferente do autor/último pusher deve
-   usar **Files changed → Review changes → Approve**. Depois, **Merge pull request**.
+   `test-signing-recovery` verdes. O próprio administrador confere **Files changed**, os fingerprints e os três checks. Depois clique em **Merge pull request**. Não é necessário nem possível aprovar o próprio PR; zero aprovações formais são exigidas, mas o PR e os checks continuam obrigatórios.
    Não force o merge nem ignore proteções.
 3. Avatar → **Settings → Developer settings → Personal access tokens → Fine-grained
    tokens → HUGINN-distribution-bootstrap → Delete**. O workflow já remove o secret,
@@ -85,9 +85,9 @@ por procedimento aprovado; nunca há rotação silenciosa em clientes.
 ### D. Gerar a primeira release durável de testes, quando desejado
 
 **Actions → Prepare test release → Run workflow**, branch `main`, versão nova
-(padrão `0.3.0`), **Run workflow**. Aguarda CI do commit exato, cria tag imutável e
+(padrão `0.3.0`), marque **confirm_test_release**, **Run workflow**. Aguarda CI do commit exato, cria tag imutável e
 aciona `Windows portable build` com canal teste e **enable_client_updates=false**.
-Depois dos testes, o revisor abre a execução de `Windows portable build` →
+Depois dos testes, o administrador abre a execução de `Windows portable build` →
 **Review deployments → windows-release-teste → Approve and deploy**. O pipeline
 assina e publica uma prerelease; não habilita produção nem clientes.
 
@@ -101,3 +101,22 @@ executada com um token do titular nesta sessão. Scripts, proteção conservador
 reuso de chaves, ausência de material privado em outputs e verificação dos cofres
 são cobertos por testes automatizados. O fluxo continua falhando fechado quando
 faltam credenciais ou há um estado existente que não pode ser verificado.
+
+## Migração e compensações de segurança
+
+A separação de duas pessoas foi substituída, por decisão explícita, por autoria
+restrita ao dono do repositório, despacho manual, frase exata de confirmação antes
+de carregar segredos, aprovações manuais de deployment pelo próprio administrador,
+PR sem merge automático, CI obrigatório, tags imutáveis e assinatura Ed25519/SHA256.
+Isso não equivale a controle de duas pessoas; proteja a conta com 2FA/passkey.
+
+A regra v1 gerada pelo HUGINN é identificada por nome e fingerprint de política.
+Somente `required_approving_review_count` (1→0) e `require_last_push_approval`
+(true→false) são modificados; nenhuma outra regra ou bypass é removido. Um ruleset
+v2 mantém PR/checks/proteção contra force-push e exclusão. Regras adicionais
+personalizadas que ainda exigirem outra pessoa requerem revisão manual em
+**Settings → Rules → Rulesets**; o workflow para em vez de removê-las globalmente.
+
+Produção segue bloqueada pela variável de autorização e pela ausência de nova
+ativação. A mudança para administrador único não altera assinatura, hash,
+proteções das chaves, confirmação do operador no Windows nem instalações atuais.

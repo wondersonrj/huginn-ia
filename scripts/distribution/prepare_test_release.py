@@ -23,6 +23,9 @@ def main():
     from updater import version_tuple
     p=argparse.ArgumentParser();p.add_argument('--version',required=True);a=p.parse_args()
     try:
+        if (os.environ.get('GITHUB_ACTOR')!='wondersonrj' or os.environ.get('GITHUB_REPOSITORY')!=REPO
+                or os.environ.get('GITHUB_REF')!='refs/heads/main' or os.environ.get('CONFIRM_TEST_RELEASE')!='true'):
+            raise RuntimeError('Confirmação explícita do administrador na main é obrigatória; nenhuma tag foi criada.')
         version_tuple(a.version)
         sha=os.environ['GITHUB_SHA']
         mapping=json.loads(base64.b64decode(api('GET','contents/packaging/windows/release-public-keys.json?ref='+sha)['content']))

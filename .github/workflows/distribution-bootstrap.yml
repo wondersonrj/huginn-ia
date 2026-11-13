@@ -3,8 +3,8 @@ run-name: Prepare test distribution — manual approval required
 on:
   workflow_dispatch:
     inputs:
-      reviewer:
-        description: 'GitHub login of an authorized collaborator who reviews test releases'
+      confirmation:
+        description: 'Type exactly PREPARAR TESTES SEM PRODUCAO to authorize single-admin test preparation'
         type: string
         required: true
 concurrency:
@@ -13,8 +13,23 @@ concurrency:
 permissions:
   contents: read
 jobs:
+  authorize:
+    if: github.repository == 'wondersonrj/huginn-ia' && github.ref == 'refs/heads/main' && github.actor == github.repository_owner
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Explicit manual authorization before any protected secret is loaded
+        env:
+          CONFIRMATION: ${{ inputs.confirmation }}
+        run: |
+          python - <<'PYTHON'
+          import os
+          if os.environ['CONFIRMATION'] != 'PREPARAR TESTES SEM PRODUCAO':
+              raise SystemExit('Explicit single-admin test-only confirmation required')
+          PYTHON
   prepare:
-    if: github.repository == 'wondersonrj/huginn-ia' && github.ref == 'refs/heads/main'
+    needs: authorize
+    if: github.repository == 'wondersonrj/huginn-ia' && github.ref == 'refs/heads/main' && github.actor == github.repository_owner
     runs-on: ubuntu-latest
     timeout-minutes: 15
     environment: distribution-bootstrap
@@ -35,8 +50,8 @@ jobs:
         id: prepare
         env:
           GH_TOKEN: ${{ secrets.HUGINN_DISTRIBUTION_ADMIN_TOKEN }}
-          REVIEWER: ${{ inputs.reviewer }}
-        run: python scripts/distribution/prepare_test_channel.py prepare --reviewer "$REVIEWER"
+          CONFIRMATION: ${{ inputs.confirmation }}
+        run: python scripts/distribution/prepare_test_channel.py prepare --confirmation "$CONFIRMATION"
       - name: Remove one-time administrative secret, including on failure
         if: always()
         env:

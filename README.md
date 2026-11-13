@@ -68,3 +68,5 @@ aprovação de release e evidência Windows. Push em `main` não faz deploy para
 Procedimento de chaves, canais e aprovação: [Distribuição por GitHub Releases](docs/DISTRIBUICAO_RELEASES.md). Publicar uma release não habilita atualizações de clientes.
 
 Preparação administrativa automatizada do canal de testes: [cliques no GitHub](docs/PREPARAR_TESTES_PELO_GITHUB.md). Chaves privadas ficam nos cofres protegidos, sem artefatos; produção e clientes permanecem desativados.
+
+O fluxo de testes suporta administrador único: despacho manual com `PREPARAR TESTES SEM PRODUCAO`, aprovação pelo próprio dono, PR e CI obrigatórios, sem habilitar produção.
