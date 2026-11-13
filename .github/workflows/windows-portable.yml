@@ -2,9 +2,21 @@ name: Windows portable build
 on:
   push:
     branches: [main]
-    paths-ignore:
-      - "release/**"
+    tags: ['v*']
+    paths-ignore: ['release/**']
   workflow_dispatch:
+    inputs:
+      release_tag:
+        description: 'Existing approved semantic tag vX.Y.Z (empty = CI only)'
+        type: string
+      approve_release:
+        description: 'Approve publishing this tag after Windows validation'
+        type: boolean
+        default: false
+      channel:
+        type: choice
+        options: [teste, estavel]
+        default: teste
 permissions:
   contents: read
 jobs:
@@ -12,6 +24,20 @@ jobs:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.release_tag || github.ref }}
+          fetch-depth: 0
+      - name: Validate release identity
+        shell: pwsh
+        env:
+          RELEASE_TAG: ${{ inputs.release_tag }}
+          APPROVED: ${{ inputs.approve_release }}
+        run: |
+          if ($env:APPROVED -eq 'true') {
+            if ($env:RELEASE_TAG -notmatch '^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$') { throw 'Approved semantic tag required' }
+            git show-ref --verify "refs/tags/$env:RELEASE_TAG"
+            if ($LASTEXITCODE -ne 0) { throw 'Tag does not exist' }
+          }
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
@@ -21,17 +47,77 @@ jobs:
           cache: npm
           cache-dependency-path: frontend/package-lock.json
       - run: python -m pip install -r backend/requirements.txt
-      - run: python -m pytest -q
       - run: npm ci
         working-directory: frontend
       - run: npm run build
         working-directory: frontend
-      - run: python packaging/windows/build.py
+      - run: python -m pytest -q --junitxml=release/backend-tests.xml
+      - name: Build portable ZIP
+        shell: pwsh
+        env:
+          RELEASE_TAG: ${{ inputs.release_tag }}
+          APPROVED: ${{ inputs.approve_release }}
+          CHANNEL: ${{ inputs.channel || 'teste' }}
+        run: |
+          if ($env:APPROVED -eq 'true') {
+            python packaging/windows/build.py --version ($env:RELEASE_TAG.Substring(1)) --channel $env:CHANNEL --enable-updates
+          } else {
+            python packaging/windows/build.py
+          }
+          if ($LASTEXITCODE -ne 0) { throw 'Build failed' }
       - run: python packaging/windows/smoke.py release/HUGINN-IA-Windows-x64.zip
+      - run: python packaging/windows/update_smoke.py release/HUGINN-IA-Windows-x64.zip
+      - name: Browser tests on Windows
+        shell: pwsh
+        run: |
+          python -m pip install playwright
+          python -m playwright install chromium
+          python packaging/windows/browser_smoke.py release/HUGINN-IA-Windows-x64.zip
       - uses: actions/upload-artifact@v4
         with:
           name: HUGINN-IA-Windows-x64
           path: |
             release/HUGINN-IA-Windows-x64.zip
             release/HUGINN-IA-Windows-x64.zip.sha256
+            release/backend-tests.xml
           if-no-files-found: error
+  publish:
+    if: github.event_name == 'workflow_dispatch' && inputs.approve_release && inputs.release_tag != ''
+    needs: portable
+    runs-on: windows-latest
+    environment: windows-release-approval
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.release_tag }}
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install cryptography
+      - uses: actions/download-artifact@v4
+        with:
+          name: HUGINN-IA-Windows-x64
+          path: release
+      - name: Sign approved release manifest
+        shell: pwsh
+        env:
+          HUGINN_RELEASE_SIGNING_KEY: ${{ secrets.HUGINN_RELEASE_SIGNING_KEY }}
+          RELEASE_TAG: ${{ inputs.release_tag }}
+          CHANNEL: ${{ inputs.channel }}
+        run: |
+          python packaging/windows/release_manifest.py --version ($env:RELEASE_TAG.Substring(1)) --channel $env:CHANNEL --notes packaging/windows/RELEASE-NOTES.md
+          if ($LASTEXITCODE -ne 0) { throw 'Manifest signing failed' }
+      - name: Publish only approved tag (never main)
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ inputs.release_tag }}
+          CHANNEL: ${{ inputs.channel }}
+        run: |
+          if ($env:RELEASE_TAG -notmatch '^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$') { throw 'Invalid tag' }
+          $pre = @()
+          if ($env:CHANNEL -eq 'teste') { $pre = @('--prerelease') }
+          gh release create $env:RELEASE_TAG --verify-tag --title "HUGINN IA $env:RELEASE_TAG ($env:CHANNEL)" --notes-file packaging/windows/RELEASE-NOTES.md @pre release/HUGINN-IA-Windows-x64.zip release/HUGINN-IA-Windows-x64.zip.sha256 release/manifest.json
+          if ($LASTEXITCODE -ne 0) { throw 'Release publish failed' }

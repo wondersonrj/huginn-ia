@@ -52,3 +52,14 @@ com Oracle real. Nao ha credenciais reais neste pacote.
 Nao exponha este servidor local a rede/Internet. Nao ha autenticacao de
 usuarios nesta versao demonstrativa. As licencas do Python estao em
 runtime/LICENSE.txt; as de dependencias ficam nos respectivos *.dist-info.
+
+ATUALIZACAO E RECUPERACAO
+Este bootstrap de desenvolvimento deixa a atualizacao desativada. O painel
+mostra versao, canal e status. Distribuicao ativada depende de chave publica,
+release aprovada e testes Windows. Nunca instala commits de main.
+O supervisor e runtime ficam fora de versions/. Preferencias nao sensiveis
+ficam em state/, fora da pasta versionada. Nao guarde senhas nessa pasta.
+Uma atualizacao habilitada pede aprovacao, reinicia e confirma a versao;
+falha restaura a versao anterior. Se aparecer recuperacao pendente, feche
+as instancias e abra novamente INICIAR_HUGINN.bat. Preserve versions/ e state/.
+Consulte docs/ATUALIZACOES_WINDOWS.md no repositorio para distribuicao segura.

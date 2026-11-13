@@ -8,6 +8,8 @@ from pydantic import BaseModel, ConfigDict, Field, SecretStr, ValidationError
 from starlette.concurrency import run_in_threadpool
 from starlette.staticfiles import StaticFiles
 from pathlib import Path
+import json
+import os
 from app.oracle_connector import OracleConfig, check_connection, connection_diagnostic
 from app.schema_diagnostic import inspect_schema
 
@@ -154,6 +156,59 @@ async def importar_nfe(file: UploadFile = File(...)):
         return parse_nfe(content)
     except ValueError as exc:
         raise HTTPException(422, str(exc)) from exc
+
+
+def installed_version():
+    metadata = Path(__file__).resolve().parents[2] / "version.json"
+    if not metadata.is_file():
+        metadata = Path(__file__).resolve().parents[2] / "packaging/windows/version.json"
+    return json.loads(metadata.read_text())["version"] if metadata.is_file() else "0.0.0"
+
+
+@app.get("/api/version")
+def app_version():
+    return {"version": installed_version()}
+
+
+@app.get("/api/updates/status")
+def update_status():
+    state = os.environ.get("HUGINN_STATE_DIR")
+    if state:
+        try:
+            return json.loads((Path(state) / "status.json").read_text())
+        except (OSError, ValueError):
+            pass
+    return {"version": installed_version(), "channel": "teste", "enabled": False,
+            "available": None, "notes": "", "restart_required": False,
+            "status": "Atualizador desativado neste ambiente."}
+
+
+@app.post("/api/updates/{action}")
+async def request_update(action: str, request: Request):
+    # Fixed queue messages only. No process execution, paths, URLs or shell input.
+    if (not request.client or request.client.host not in {"127.0.0.1", "::1"}
+            or request.headers.get("origin") not in {"http://127.0.0.1:8000", "http://localhost:8000"}
+            or request.headers.get("host") not in {"127.0.0.1:8000", "localhost:8000"}
+            or request.headers.get("content-type", "").split(";")[0] != "application/json"):
+        raise HTTPException(403, "Atualizações exigem a interface local autorizada")
+    try:
+        body = await request.json()
+    except ValueError:
+        raise HTTPException(422, "Ação de atualização inválida") from None
+    if action not in {"check", "apply"} or body != {}:
+        raise HTTPException(422, "Ação de atualização inválida")
+    state = os.environ.get("HUGINN_STATE_DIR")
+    token = os.environ.get("HUGINN_UPDATE_TOKEN")
+    if not state or not token or not update_status().get("enabled"):
+        raise HTTPException(503, "Atualizador desativado; consulte a documentação")
+    queue = Path(state) / "request.json"
+    try:
+        # Exclusive create; do not replace a request already being processed.
+        with queue.open("x", encoding="utf-8") as stream:
+            json.dump({"action": action, "token": token}, stream)
+    except FileExistsError:
+        raise HTTPException(409, "Já existe uma solicitação de atualização") from None
+    return {"status": "solicitado", "restart_required": action == "apply"}
 
 
 # A portable build serves React and the API from one loopback origin.

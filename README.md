@@ -57,3 +57,10 @@ Extraia o ZIP completo e abra `INICIAR_HUGINN.bat`; a interface e a API iniciam
 juntas em `http://127.0.0.1:8000`, com abertura automática do navegador.
 Não exige instalação de Python, Node.js ou Oracle Client no cliente.
 O teste Oracle não grava no WinThor e não persiste credenciais.
+
+## Atualizações seguras Windows
+
+O supervisor, o fluxo de aprovação por tag e os testes de recuperação estão
+em [Atualizações Windows](docs/ATUALIZACOES_WINDOWS.md). O bootstrap de
+**desenvolvimento mantém a atualização desativada** até configuração das chaves,
+aprovação de release e evidência Windows. Push em `main` não faz deploy para clientes.

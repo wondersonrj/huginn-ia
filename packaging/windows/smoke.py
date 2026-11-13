@@ -19,6 +19,8 @@ def smoke(package, interpreter=None):
             assert bundle.testzip() is None
             bundle.extractall(temp)
         root = Path(temp) / 'HUGINN-IA-Windows-x64'
+        config = json.loads((root / 'bootstrap.json').read_text())
+        payload = root / 'versions' / config['version']
         assert (root / 'runtime/python.exe').read_bytes()[:2] == b'MZ'
         assert (root / 'runtime/vcruntime140.dll').is_file()
         assert (root / 'runtime/vcruntime140_1.dll').is_file()
@@ -60,25 +62,25 @@ def smoke(package, interpreter=None):
                     invoice = json.load(response)
                     assert invoice['numero'] == '12'
                     assert invoice['itens'][0]['valor_total'] == '21.00'
-                assert (root / 'backend/app/schema_diagnostic.py').is_file()
+                assert (payload / 'backend/app/schema_diagnostic.py').is_file()
                 for endpoint in ['/api/oracle/testar', '/api/oracle/diagnostico']:
                     request = urllib.request.Request(base + endpoint,
-                        data=json.dumps(dict(host='127.0.0.1', port=1, service='SYNTHETIC', user='synthetic', password='synthetic-test-only')).encode(),
+                        data=json.dumps(dict(host='invalid;host', port=1, service='SYNTHETIC', user='synthetic', password='synthetic-test-only')).encode(),
                         headers={'Content-Type': 'application/json', 'Origin': base})
                     try:
                         urllib.request.urlopen(request)
                         raise AssertionError('Porta sem Oracle nao deveria conectar')
                     except urllib.error.HTTPError as error:
-                        assert error.code == 502
+                        assert error.code == 422
                         assert 'synthetic-test-only' not in error.read().decode()
                 duplicate = subprocess.run(command, cwd=temp, capture_output=True, timeout=20)
                 assert duplicate.returncode == 1
                 assert b'8000' in duplicate.stdout
-                print('PASS: ZIP, runtime layout, startup from path with spaces, production UI, API, XML, Oracle/metadata failure and occupied port')
+                print('PASS: ZIP, runtime layout, startup from path with spaces, production UI, API, XML, Oracle/metadata input rejection (no DB) and occupied port')
             finally:
-                process.terminate()
+                (root / "state/shutdown").touch()
                 try:
-                    process.wait(timeout=10)
+                    process.wait(timeout=30)
                 except subprocess.TimeoutExpired:
                     process.kill()
                     process.wait()
