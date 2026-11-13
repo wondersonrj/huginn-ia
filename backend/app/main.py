@@ -9,6 +9,7 @@ from starlette.concurrency import run_in_threadpool
 from starlette.staticfiles import StaticFiles
 from pathlib import Path
 from app.oracle_connector import OracleConfig, check_connection, connection_diagnostic
+from app.schema_diagnostic import inspect_schema
 
 app = FastAPI(title="HUGINN IA API", version="0.1.0")
 app.add_middleware(CORSMiddleware, allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"], allow_credentials=False, allow_methods=["GET", "POST"], allow_headers=["*"])
@@ -50,6 +51,29 @@ async def testar_oracle(request: Request):
     if not result["conectado"]:
         raise HTTPException(502, "Oracle não confirmou o teste de leitura")
     return result
+
+
+@app.post("/api/oracle/diagnostico")
+async def diagnostico_oracle(request: Request):
+    if not request.client or request.client.host not in {"127.0.0.1", "::1"}:
+        raise HTTPException(403, "Diagnóstico disponível apenas no ambiente local")
+    origin = request.headers.get("origin")
+    if origin and origin not in {
+        "http://localhost:5173", "http://127.0.0.1:5173",
+        "http://localhost:8000", "http://127.0.0.1:8000",
+    }:
+        raise HTTPException(403, "Origem não permitida")
+    try:
+        payload = OracleConnectionRequest.model_validate(await request.json())
+        cfg = OracleConfig(payload.host, payload.port, payload.service,
+                           payload.user, payload.password.get_secret_value())
+        cfg.validate()
+    except (ValidationError, ValueError):
+        raise HTTPException(422, "Informe dados válidos para o diagnóstico") from None
+    try:
+        return await run_in_threadpool(inspect_schema, cfg)
+    except Exception as exc:
+        raise HTTPException(502, connection_diagnostic(exc)) from None
 
 def child(node, name):
     return next((c for c in node if c.tag.rsplit("}", 1)[-1] == name), None) if node is not None else None
