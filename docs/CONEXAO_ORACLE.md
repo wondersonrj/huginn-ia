@@ -37,3 +37,23 @@ O teste limita a conexão TCP a 5 segundos, sem novas tentativas, e cada chamada
 Na raiz: `.venv/bin/python -m pytest -q`. Os testes do conector usam mocks do driver para conferir ordem exata dos comandos de leitura, fechamento em sucesso/falha, ausência de commit e proteção de credenciais nas respostas. Não exigem nem acessam um Oracle real. Em `frontend`, execute `npm run build`.
 
 Uma conexão real só pode ser confirmada com endereço, Service Name, conta de leitura e acesso de rede fornecidos com segurança no ambiente do operador. Não envie senhas em chat ou commits.
+
+## Diagnóstico das tabelas WinThor
+
+O botão **Diagnosticar tabelas WinThor** usa `POST /api/oracle/diagnostico`.
+A consulta é fixa e parametrizada: lê somente nomes de proprietário, tabela,
+coluna e tipo em `ALL_TAB_COLUMNS` e `ALL_TABLES`, para `PCPRODUT`, `PCFORNEC`,
+`PCPRODFILIAL`, `PCPRODFORNEC`, `PCNFENT`, `PCMOV` e `PCPEDIDO`. Não aceita SQL,
+nomes extras ou consulta de registros comerciais. Usa a mesma transação de
+somente leitura e fecha a sessão sem commit, também em caso de erro.
+
+Tabelas homônimas de proprietários diferentes são exibidas separadamente.
+Somente tabelas visíveis no dicionário ao usuário são identificadas; sinônimos
+e views não são resolvidos como tabelas. “Não visível” não comprova inexistência:
+pode ser falta de permissão. Nenhuma permissão é concedida pelo aplicativo.
+Editar a configuração limpa o diagnóstico anterior; a senha é apagada após
+cada tentativa e deve ser preenchida novamente para repetir a operação.
+
+A suíte inclui verificação da consulta exata, parâmetros autorizados, ausência
+de commits, separação de proprietários, erro/fechamento e restrições da API.
+Resultados Oracle de sucesso foram simulados; não substituem validação real.

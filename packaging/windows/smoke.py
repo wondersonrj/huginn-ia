@@ -60,19 +60,21 @@ def smoke(package, interpreter=None):
                     invoice = json.load(response)
                     assert invoice['numero'] == '12'
                     assert invoice['itens'][0]['valor_total'] == '21.00'
-                request = urllib.request.Request(base + '/api/oracle/testar',
-                    data=json.dumps(dict(host='127.0.0.1', port=1, service='SYNTHETIC', user='synthetic', password='synthetic-test-only')).encode(),
-                    headers={'Content-Type': 'application/json', 'Origin': base})
-                try:
-                    urllib.request.urlopen(request)
-                    raise AssertionError('Porta sem Oracle nao deveria conectar')
-                except urllib.error.HTTPError as error:
-                    assert error.code == 502
-                    assert 'synthetic-test-only' not in error.read().decode()
+                assert (root / 'backend/app/schema_diagnostic.py').is_file()
+                for endpoint in ['/api/oracle/testar', '/api/oracle/diagnostico']:
+                    request = urllib.request.Request(base + endpoint,
+                        data=json.dumps(dict(host='127.0.0.1', port=1, service='SYNTHETIC', user='synthetic', password='synthetic-test-only')).encode(),
+                        headers={'Content-Type': 'application/json', 'Origin': base})
+                    try:
+                        urllib.request.urlopen(request)
+                        raise AssertionError('Porta sem Oracle nao deveria conectar')
+                    except urllib.error.HTTPError as error:
+                        assert error.code == 502
+                        assert 'synthetic-test-only' not in error.read().decode()
                 duplicate = subprocess.run(command, cwd=temp, capture_output=True, timeout=20)
                 assert duplicate.returncode == 1
                 assert b'8000' in duplicate.stdout
-                print('PASS: ZIP, runtime layout, startup from path with spaces, production UI, API, XML, Oracle failure and occupied port')
+                print('PASS: ZIP, runtime layout, startup from path with spaces, production UI, API, XML, Oracle/metadata failure and occupied port')
             finally:
                 process.terminate()
                 try:

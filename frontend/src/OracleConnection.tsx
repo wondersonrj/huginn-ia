@@ -7,11 +7,10 @@ export function OracleConnection() {
   const [user, setUser] = useState('')
   const [password, setPassword] = useState('')
   const [busy, setBusy] = useState(false)
-  const [schema, setSchema] = useState<{ tabelas: {nome:string; visivel:boolean; colunas:{coluna:string;tipo:string}[]}[] } | null>(null)
+  const [schema, setSchema] = useState<{ tabelas: {nome:string; proprietario:string|null; visivel:boolean; colunas:{coluna:string;tipo:string}[]}[] } | null>(null)
   const [result, setResult] = useState<{ ok: boolean; text: string } | null>(null)
 
-  async function testConnection(event: FormEvent<HTMLFormElement>, diagnostic = false) {
-    event.preventDefault()
+  async function testConnection(diagnostic = false) {
     setBusy(true)
     setResult(null)
     setSchema(null)
@@ -47,8 +46,8 @@ export function OracleConnection() {
   return <section className="panel" id="oracle">
     <div className="panel-head"><div><h2>Conexão Oracle direta</h2>
       <p>Teste local com uma conta autorizada pelo DBA e com privilégios somente de leitura.</p></div></div>
-    <p className="notice">O teste consulta apenas DUAL. Não consulta nem grava tabelas do WinThor. Os dados não são salvos e a senha é limpa após cada tentativa.</p>
-    <form onSubmit={e => testConnection(e)} onChange={() => setResult(null)}>
+    <p className="notice">O teste de conexão consulta apenas DUAL; o diagnóstico consulta somente metadados das tabelas autorizadas. Nenhum registro comercial é lido ou alterado. Os dados não são salvos e a senha é limpa após cada tentativa.</p>
+    <form onSubmit={(e: FormEvent<HTMLFormElement>) => { e.preventDefault(); const diagnostic = (e.nativeEvent as SubmitEvent).submitter?.getAttribute("value") === "diagnostic"; void testConnection(diagnostic) }} onChange={() => { setResult(null); setSchema(null) }}>
       <fieldset disabled={busy} className="oracle-fields">
         <label>Host ou IP<input required maxLength={253} value={host} onChange={e => setHost(e.target.value)} placeholder="servidor.interno" autoComplete="off" /></label>
         <label>Porta<input required type="number" min={1} max={65535} value={port} onChange={e => setPort(e.target.value)} /></label>
@@ -56,10 +55,10 @@ export function OracleConnection() {
         <label>Usuário de leitura<input required maxLength={128} value={user} onChange={e => setUser(e.target.value)} autoComplete="off" /></label>
         <label>Senha<input required type="password" maxLength={1024} value={password} onChange={e => setPassword(e.target.value)} autoComplete="off" /></label>
       </fieldset>
-      <button className="oracle-test" disabled={busy} type="submit">{busy ? 'Aguarde…' : 'Testar conexão Oracle'}</button>
-      <button className="oracle-test" disabled={busy} type="button" onClick={() => { const form = document.querySelector<HTMLFormElement>('#oracle form'); if (form?.reportValidity()) void testConnection({preventDefault:()=>{}} as FormEvent<HTMLFormElement>, true) }}>Diagnosticar tabelas WinThor</button>
+      <button className="oracle-test" disabled={busy} type="submit" value="connection">{busy ? 'Aguarde…' : 'Testar conexão Oracle'}</button>
+      <button className="oracle-test" disabled={busy} type="submit" value="diagnostic">Diagnosticar tabelas WinThor</button>
       <div aria-live="polite">{result && <p role={result.ok ? 'status' : 'alert'} className={result.ok ? 'success' : 'error'}>{result.text}</p>}</div>
     </form>
-    {schema && <div className="panel"><h3>Estrutura identificada (somente metadados)</h3><p>Uma tabela ausente pode não estar acessível ao usuário. Nenhum dado comercial foi lido.</p>{schema.tabelas.map(t=><details key={t.nome}><summary>{t.nome} — {t.visivel ? `${t.colunas.length} colunas visíveis` : 'não visível'}</summary><div className="table-wrap"><table><thead><tr><th>Coluna</th><th>Tipo</th></tr></thead><tbody>{t.colunas.map(col=><tr key={col.coluna}><td>{col.coluna}</td><td>{col.tipo}</td></tr>)}</tbody></table></div></details>)}</div>}
+    {schema && <div className="panel"><h3>Estrutura identificada (somente metadados)</h3><p>Uma tabela não visível pode não existir ou não estar acessível ao usuário. Proprietários são mostrados separadamente; sinônimos não são resolvidos. Nenhum dado comercial foi lido.</p>{schema.tabelas.map(t=><details key={`${t.proprietario ?? ""}.${t.nome}`}><summary>{t.proprietario ? `${t.proprietario}.${t.nome}` : t.nome} — {t.visivel ? `${t.colunas.length} colunas visíveis` : 'não visível'}</summary><div className="table-wrap"><table><thead><tr><th>Coluna</th><th>Tipo</th></tr></thead><tbody>{t.colunas.map(col=><tr key={col.coluna}><td>{col.coluna}</td><td>{col.tipo}</td></tr>)}</tbody></table></div></details>)}</div>}
   </section>
 }

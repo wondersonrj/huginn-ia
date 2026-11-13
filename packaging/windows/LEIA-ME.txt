@@ -18,8 +18,14 @@ O computador precisa alcancar diretamente o listener (rede/VPN corporativa).
 O driver Thin nao precisa de OCI/Instant Client. A compatibilidade de rede,
 autenticacao e criptografia deve ser confirmada com o DBA.
 
-O teste so executa SET TRANSACTION READ ONLY e SELECT 1 FROM DUAL e fecha a
-sessao sem commit. Nao ha SQL livre, DML, DDL ou consulta de tabelas WinThor.
+O teste de conexao so executa SET TRANSACTION READ ONLY e SELECT 1 FROM DUAL.
+O botao Diagnosticar tabelas WinThor consulta somente ALL_TAB_COLUMNS e
+ALL_TABLES para os nomes fixos PCPRODUT, PCFORNEC, PCPRODFILIAL, PCPRODFORNEC,
+PCNFENT, PCMOV e PCPEDIDO. Mostra proprietario, coluna e tipo, separando
+proprietarios diferentes. Nao resolve sinonimos. Nao visivel pode significar
+objeto inexistente OU falta de permissao, nao uma ausencia confirmada.
+A sessao e fechada sem commit. Nao ha SQL livre, DML, DDL ou leitura de
+registros comerciais. Para repetir uma operacao, informe a senha novamente.
 Uma resposta positiva confirma apenas o teste DUAL; nao valida mapeamento,
 permissoes em tabelas ou integracao fiscal. Use exclusivamente conta de leitura.
 
