@@ -1,0 +1,27 @@
+name: AutoDev immutable validation
+run-name: autodev-${{ inputs.pr }}-${{ inputs.head }}-${{ inputs.base }}
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      pr:
+        type: string
+        required: true
+      head:
+        type: string
+        required: true
+      base:
+        type: string
+        required: true
+permissions:
+  contents: read
+jobs:
+  quality:
+    uses: ./.github/workflows/autodev-quality.yml
+    with:
+      ci_ref: ${{ inputs.head || github.event.pull_request.head.sha }}
+  windows:
+    uses: ./.github/workflows/autodev-windows-ci.yml
+    with:
+      ci_ref: ${{ inputs.head || github.event.pull_request.head.sha }}
