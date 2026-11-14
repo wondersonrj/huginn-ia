@@ -73,3 +73,5 @@ O fluxo de testes suporta administrador único: despacho manual com `PREPARAR TE
 
 O fluxo de atualização segura de branches e revalidação dos checks está em
 [docs/AUTODEV.md](docs/AUTODEV.md).
+O [manual mestre da fábrica](docs/MANUAL_MESTRE.md) reúne os limites de autoridade
+e o procedimento para workflows que aguardam aprovação humana.
