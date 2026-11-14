@@ -1,6 +1,7 @@
 """Exercise an extracted ZIP. Default: execute its Windows runtime.
 --python permits Linux checks of the same application, NOT Windows validation.
 """
+import os
 import argparse
 import json
 from pathlib import Path
@@ -34,7 +35,8 @@ def smoke(package, interpreter=None):
         python = str(interpreter or root / 'runtime/python.exe')
         command = [python, '-I', str(root / 'launcher.py'), '--no-browser']
         with tempfile.TemporaryFile() as log:
-            process = subprocess.Popen(command, cwd=temp, stdout=log, stderr=log)
+            process = subprocess.Popen(command, cwd=temp, stdout=log, stderr=log,
+                                       env={**os.environ, 'HUGINN_API_TOKEN': 'synthetic-smoke-token-' + 'x' * 32, 'HUGINN_WINTHOR_MODE': 'demo'})
             try:
                 for _ in range(150):
                     if process.poll() is not None:
@@ -66,7 +68,8 @@ def smoke(package, interpreter=None):
                 for endpoint in ['/api/oracle/testar', '/api/oracle/diagnostico']:
                     request = urllib.request.Request(base + endpoint,
                         data=json.dumps(dict(host='invalid;host', port=1, service='SYNTHETIC', user='synthetic', password='synthetic-test-only')).encode(),
-                        headers={'Content-Type': 'application/json', 'Origin': base})
+                        headers={'Content-Type': 'application/json', 'Origin': base,
+                                 'Authorization': 'Bearer synthetic-smoke-token-' + 'x' * 32})
                     try:
                         urllib.request.urlopen(request)
                         raise AssertionError('Porta sem Oracle nao deveria conectar')

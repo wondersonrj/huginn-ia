@@ -64,3 +64,24 @@ não evidência de API autônoma Codex ou de workflow novo já implantado na mai
 A [issue #10](https://github.com/wondersonrj/huginn-ia/issues/10) continua aberta
 para consolidação integral. Não se muda seu estado só por criar documentação.
 Nenhuma página deste manual autoriza merge, produção ou credenciais adicionais.
+
+## Primeiro fluxo funcional WinThor — issue #18
+
+[Implementação, instalação Windows, schema, API e aceite](WINTHOR_MVP.md).
+Reutiliza o conector Thin e a interface existentes para pesquisar somente código
+e nome de produtos/fornecedores. A consulta valida metadados por owner explícito,
+usa binds, paginação limitada e transação read-only. Novos endpoints e os
+avulsos legados de Oracle exigem token local; as consultas mantêm a senha Oracle
+somente na configuração do servidor. Auditoria registra metadados de operação,
+sem filtros, credenciais ou resultados comerciais.
+
+A demonstração usa dados sintéticos identificados. Mocks e CI não confirmam
+schema, rede, credenciais ou conta de leitura de um cliente. O ensaio Oracle
+real depende de autorização do DBA e de configuração local segura; não solicitar
+segredos em issues. Não há SEFAZ, escrita ERP, comparação NF-e automática,
+publicação, merge ou mudança de proteções. O fluxo da #9 continua parcialmente
+pendente para conciliação/consultas adicionais.
+
+Changelog: #18 acrescenta o catálogo funcional, autenticação local, auditoria,
+validação do schema e testes de UI/API. O histórico e inventário da fábrica
+continuam vinculados à #10; não se confunde MVP demonstrado com produção aprovada.

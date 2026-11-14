@@ -85,7 +85,7 @@ def test_oracle_endpoint_success():
     with patch('app.main.check_connection', return_value={
         'conectado': True, 'modo': 'somente leitura', 'driver': 'python-oracledb Thin'
     }) as check:
-        response = TestClient(app, client=('127.0.0.1', 1234)).post('/api/oracle/testar', json=payload())
+        response = TestClient(app, base_url='http://127.0.0.1:8000', headers={'Authorization': 'Bearer ' + 't' * 40}, client=('127.0.0.1', 1234)).post('/api/oracle/testar', json=payload())
     assert response.status_code == 200
     assert response.json()['conectado'] is True
     assert check.call_args.args[0] == config()
@@ -95,7 +95,7 @@ def test_oracle_endpoint_success():
 @pytest.mark.parametrize('changes', [dict(port=0), dict(host='bad;host'), dict(password=''), dict(sql='DELETE FROM TABELA')])
 def test_oracle_endpoint_validation_does_not_echo_secrets(changes):
     with patch('app.main.check_connection') as check:
-        response = TestClient(app, client=('127.0.0.1', 1234)).post('/api/oracle/testar', json=payload() | changes)
+        response = TestClient(app, base_url='http://127.0.0.1:8000', headers={'Authorization': 'Bearer ' + 't' * 40}, client=('127.0.0.1', 1234)).post('/api/oracle/testar', json=payload() | changes)
     assert response.status_code == 422
     assert payload()['password'] not in response.text
     check.assert_not_called()
@@ -103,28 +103,28 @@ def test_oracle_endpoint_validation_does_not_echo_secrets(changes):
 
 def test_oracle_endpoint_hides_driver_errors():
     with patch('app.main.check_connection', side_effect=RuntimeError('fake-test-password')):
-        response = TestClient(app, client=('127.0.0.1', 1234)).post('/api/oracle/testar', json=payload())
+        response = TestClient(app, base_url='http://127.0.0.1:8000', headers={'Authorization': 'Bearer ' + 't' * 40}, client=('127.0.0.1', 1234)).post('/api/oracle/testar', json=payload())
     assert response.status_code == 502
     assert 'fake-test-password' not in response.text
 
 
 def test_oracle_endpoint_rejects_foreign_origin():
     with patch('app.main.check_connection') as check:
-        response = TestClient(app, client=('127.0.0.1', 1234)).post('/api/oracle/testar', json=payload(), headers={'Origin': 'https://other.example'})
+        response = TestClient(app, base_url='http://127.0.0.1:8000', headers={'Authorization': 'Bearer ' + 't' * 40}, client=('127.0.0.1', 1234)).post('/api/oracle/testar', json=payload(), headers={'Origin': 'https://other.example'})
     assert response.status_code == 403
     check.assert_not_called()
 
 
 def test_oracle_endpoint_rejects_remote_client():
     with patch('app.main.check_connection') as check:
-        response = TestClient(app, client=('192.0.2.1', 1234)).post('/api/oracle/testar', json=payload())
+        response = TestClient(app, base_url='http://127.0.0.1:8000', headers={'Authorization': 'Bearer ' + 't' * 40}, client=('192.0.2.1', 1234)).post('/api/oracle/testar', json=payload())
     assert response.status_code == 403
     check.assert_not_called()
 
 
 def test_oracle_endpoint_malformed_json():
     with patch('app.main.check_connection') as check:
-        response = TestClient(app, client=('127.0.0.1', 1234)).post(
+        response = TestClient(app, base_url='http://127.0.0.1:8000', headers={'Authorization': 'Bearer ' + 't' * 40}, client=('127.0.0.1', 1234)).post(
             '/api/oracle/testar', content=b'{broken', headers={'Content-Type': 'application/json'}
         )
     assert response.status_code == 422
@@ -133,7 +133,7 @@ def test_oracle_endpoint_malformed_json():
 
 def test_oracle_endpoint_unconfirmed_result():
     with patch('app.main.check_connection', return_value={'conectado': False}):
-        response = TestClient(app, client=('127.0.0.1', 1234)).post('/api/oracle/testar', json=payload())
+        response = TestClient(app, base_url='http://127.0.0.1:8000', headers={'Authorization': 'Bearer ' + 't' * 40}, client=('127.0.0.1', 1234)).post('/api/oracle/testar', json=payload())
     assert response.status_code == 502
 
 
@@ -169,3 +169,8 @@ def test_production_frontend_served_when_built():
     import re
     asset = re.search(r'src="([^"]+\.js)"', response.text).group(1)
     assert TestClient(app).get(asset).status_code == 200
+
+
+@pytest.fixture(autouse=True)
+def legacy_test_token(monkeypatch):
+    monkeypatch.setenv('HUGINN_API_TOKEN', 't' * 40)
