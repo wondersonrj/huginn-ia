@@ -1,0 +1,42 @@
+{
+  "issue": 18,
+  "repository": "wondersonrj/huginn-ia",
+  "mode_demonstrated": "demo",
+  "oracle_real_validated": false,
+  "actual_customer_schema_confirmed": false,
+  "expected_runtime_validated_mappings": {
+    "PCPRODUT": [
+      "CODPROD NUMBER",
+      "DESCRICAO text"
+    ],
+    "PCFORNEC": [
+      "CODFORNEC NUMBER",
+      "FORNECEDOR text"
+    ]
+  },
+  "local_backend": {
+    "passed": 228,
+    "skipped": 1,
+    "real_oracle_access": "forbidden by global test fixture"
+  },
+  "frontend_build": "passed",
+  "production_npm_audit_vulnerabilities": 0,
+  "actionlint": "1.7.12 passed",
+  "diff_check": "passed",
+  "package_linux_smoke": "passed using isolated Linux interpreter, not Windows binaries",
+  "package_chromium": "passed real authenticated demo API, products/suppliers, pagination, filters, empty/error/recovery, schema, logout, mobile and legacy regressions",
+  "package_linux_update_rollback": "passed using Linux interpreter, no publication",
+  "windows_validation": "Final run IDs and commit SHA recorded in PR description; not inferred from Linux",
+  "pending_human_validation": [
+    "DBA authorized network and SELECT-only account",
+    "Actual owner/columns/types",
+    "Oracle 19c and TOTVS Cloud topology when authorized"
+  ],
+  "security": {
+    "database_writes": false,
+    "credentials_versioned": false,
+    "merge": false,
+    "release_or_publication": false,
+    "main_protection_changed": false
+  }
+}

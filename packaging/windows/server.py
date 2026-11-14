@@ -1,4 +1,4 @@
-"""Portable, loopback-only server. Never loads or saves database credentials."""
+"""Portable, loopback-only server. Oracle secrets come from the local inherited environment; never saved here."""
 from pathlib import Path
 import socket
 import sys

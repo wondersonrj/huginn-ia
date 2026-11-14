@@ -1,0 +1,33 @@
+name: AutoDev failure triage
+
+on:
+  workflow_run:
+    workflows:
+      - HUGINN AutoDev quality gates
+    types: [completed]
+
+permissions:
+  actions: read
+  contents: read
+  issues: write
+
+concurrency:
+  group: autodev-failure-handoff-${{ github.event.workflow_run.head_sha }}
+  cancel-in-progress: false
+
+jobs:
+  triage:
+    if: github.repository == 'wondersonrj/huginn-ia' && github.event.workflow_run.conclusion == 'failure' && github.event.workflow_run.event == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Only trusted default-branch code, never head_sha/ref/artifacts of the PR.
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - name: Queue metadata-only Codex handoff (manual fallback)
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_ID: ${{ github.event.workflow_run.id }}
+        run: python scripts/autodev/handoff.py --run-id "$RUN_ID"

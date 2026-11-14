@@ -1,8 +1,9 @@
-# HUGINN IA — MVP NF-e
-Plataforma de análise preliminar de NF-e para TOTVS WinThor. **Análise de XML com teste opcional de conexão Oracle somente leitura; sem acesso à SEFAZ.**
+# HUGINN IA — consultas WinThor e análise NF-e
+Plataforma de análise preliminar de NF-e para TOTVS WinThor. **Consulta de produtos e fornecedores em Oracle somente leitura (ou simulação identificada), análise de XML e nenhuma integração SEFAZ.**
 
 ## Iniciar
-Requer Python 3.12+ e Node 20+.
+Requer Python 3.12+ e Node 20+. Para as consultas/diagnósticos Oracle, configure
+o token local antes de iniciar; siga [a configuração segura](docs/WINTHOR_MVP.md).
 
 Backend (na raiz):
 ```powershell
@@ -43,12 +44,12 @@ Em `frontend`, execute `npm run build` para verificar TypeScript e gerar o build
 ## Escopo
 - Importação local de XML NF-e (nfeProc ou NFe) e análise estrutural.
 - Identificação de emitente, itens, NCM, CFOP e valores; sinalização de cadastro pendente.
-- Dados de demonstração identificados. **Não há comparação real com WinThor.**
+- Consultas parametrizadas de produtos/fornecedores com schema validado e token local. Modo demo identificado, sem banco. **Não há conciliação automática de XML com WinThor.**
 - Sem consultas SEFAZ, sem SQL livre e sem escrita no Oracle.
 - Tela de teste Oracle direto, sem persistir credenciais e sem consultar tabelas WinThor. Consulte [Conexão Oracle](docs/CONEXAO_ORACLE.md).
 
 ## Próximos passos
-Validar schema real do WinThor com consultas parametrizadas em usuário read-only, mapear fornecedores/produtos e integrar Distribuição DF-e com certificado e controle de NSU. Adicionar autenticação e isolamento multi-tenant antes de produção.
+Homologar as consultas com um schema Oracle autorizado, implementar conciliação de itens e integrar Distribuição DF-e com certificado e controle de NSU. Adicionar autenticação e isolamento multi-tenant antes de produção.
 
 ## Windows portátil
 
@@ -70,3 +71,18 @@ Procedimento de chaves, canais e aprovação: [Distribuição por GitHub Release
 Preparação administrativa automatizada do canal de testes: [cliques no GitHub](docs/PREPARAR_TESTES_PELO_GITHUB.md). Chaves privadas ficam nos cofres protegidos, sem artefatos; produção e clientes permanecem desativados.
 
 O fluxo de testes suporta administrador único: despacho manual com `PREPARAR TESTES SEM PRODUCAO`, aprovação pelo próprio dono, PR e CI obrigatórios, sem habilitar produção.
+
+O fluxo de atualização segura de branches e revalidação dos checks está em
+[docs/AUTODEV.md](docs/AUTODEV.md).
+O [manual mestre da fábrica](docs/MANUAL_MESTRE.md) reúne os limites de autoridade
+e o procedimento para workflows que aguardam aprovação humana.
+A fase 2 usa [handoff manual seguro ao Codex](docs/AUTODEV.md#fase-2--issue-14-fila-segura-para-codex),
+com [histórico e guias da fábrica](docs/FABRICA_APLICACOES/HISTORICO_COMPLETO.md).
+
+## Consultar produtos e fornecedores
+
+Configure um token local (32+ caracteres), mantenha HUGINN_WINTHOR_MODE=demo para
+a demonstração e informe esse token em **Consultas WinThor**. O modo Oracle usa
+credenciais somente no servidor e schema validado antes da leitura.
+[Instalação Windows, configuração segura e limitações](docs/WINTHOR_MVP.md).
+Não houve conexão Oracle real nesta entrega; o aceite automático usa dados sintéticos.

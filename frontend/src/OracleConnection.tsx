@@ -1,6 +1,6 @@
-import { useState, type FormEvent } from 'react'
+import { useEffect, useRef, useState, type FormEvent } from 'react'
 
-export function OracleConnection() {
+export function OracleConnection({ token }: { token: string }) {
   const [host, setHost] = useState('')
   const [port, setPort] = useState('1521')
   const [service, setService] = useState('')
@@ -10,21 +10,30 @@ export function OracleConnection() {
   const [schema, setSchema] = useState<{ tabelas: {nome:string; proprietario:string|null; visivel:boolean; colunas:{coluna:string;tipo:string}[]}[] } | null>(null)
   const [result, setResult] = useState<{ ok: boolean; text: string } | null>(null)
 
+  const generation = useRef(0)
+  const active = useRef<AbortController | null>(null)
+  useEffect(() => { generation.current += 1; active.current?.abort(); setBusy(false); setPassword(''); setResult(null); setSchema(null) }, [token])
+  useEffect(() => () => { active.current?.abort() }, [])
+
   async function testConnection(diagnostic = false) {
+    const id = ++generation.current
+    active.current?.abort()
     setBusy(true)
     setResult(null)
     setSchema(null)
     const controller = new AbortController()
+    active.current = controller
     const timer = window.setTimeout(() => controller.abort(), 20000)
     try {
       const response = await fetch(diagnostic ? '/api/oracle/diagnostico' : '/api/oracle/testar', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({ host: host.trim(), port: Number(port), service: service.trim(), user: user.trim(), password }),
         signal: controller.signal,
       })
       const data = await response.json()
       if (!response.ok) throw new Error(typeof data.detail === 'string' ? data.detail : 'Não foi possível testar a conexão.')
+      if (id !== generation.current) return
       if (diagnostic) {
         setSchema(data)
         setResult({ok:true,text:'Diagnóstico de metadados concluído. Nenhum registro comercial foi consultado.'})
@@ -33,19 +42,19 @@ export function OracleConnection() {
         setResult({ ok: true, text: 'Conexão confirmada em somente leitura. Nenhum dado do WinThor foi alterado.' })
       }
     } catch (error) {
+      if (id !== generation.current) return
       setResult({ ok: false, text: error instanceof Error && error.name === 'AbortError'
         ? 'Tempo de teste excedido. Verifique a rede e tente novamente.'
         : error instanceof Error ? error.message : 'Falha no teste de conexão.' })
     } finally {
       window.clearTimeout(timer)
-      setPassword('')
-      setBusy(false)
+      if (id === generation.current) { setPassword(''); setBusy(false) }
     }
   }
 
   return <section className="panel" id="oracle">
     <div className="panel-head"><div><h2>Conexão Oracle direta</h2>
-      <p>Teste local com uma conta autorizada pelo DBA e com privilégios somente de leitura.</p></div></div>
+      <p>Diagnóstico avulso com conta de leitura autorizada pelo DBA. Requer o token local da seção Consultas WinThor.</p></div></div>
     <p className="notice">O teste de conexão consulta apenas DUAL; o diagnóstico consulta somente metadados das tabelas autorizadas. Nenhum registro comercial é lido ou alterado. Os dados não são salvos e a senha é limpa após cada tentativa.</p>
     <form onSubmit={(e: FormEvent<HTMLFormElement>) => { e.preventDefault(); const diagnostic = (e.nativeEvent as SubmitEvent).submitter?.getAttribute("value") === "diagnostic"; void testConnection(diagnostic) }} onChange={() => { setResult(null); setSchema(null) }}>
       <fieldset disabled={busy} className="oracle-fields">
