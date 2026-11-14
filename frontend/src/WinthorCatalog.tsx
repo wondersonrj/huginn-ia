@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
+import { ConnectionManager, type Connection } from './ConnectionManager'
 
 type Kind = 'produtos' | 'fornecedores'
 type Health = { modo: 'simulado' | 'oracle'; conectado: boolean; disponivel: boolean; mensagem: string }
@@ -6,6 +7,7 @@ type Result = { modo: 'simulado' | 'oracle'; itens: { codigo: string; nome: stri
 type Schema = { modo: string; validado_no_oracle: boolean; tabelas: { tabela: string; validado: boolean; colunas: { nome: string; tipo: string }[] }[] }
 
 export function WinthorCatalog({ token, onTokenChange }: { token: string; onTokenChange: (value: string) => void }) {
+  const [connection, setConnection] = useState<Connection | null>(null)
   const [health, setHealth] = useState<Health | null>(null)
   const [kind, setKind] = useState<Kind>('produtos')
   const [code, setCode] = useState('')
@@ -23,7 +25,7 @@ export function WinthorCatalog({ token, onTokenChange }: { token: string; onToke
     active.current?.abort()
     setBusy(false); setResult(null); setSchema(null); setError('')
   }
-  useEffect(() => { reset(); setHealth(null) }, [token])
+  useEffect(() => { reset(); setHealth(null); setConnection(null) }, [token])
   useEffect(() => () => { active.current?.abort() }, [])
 
   async function request(action: 'health' | 'diagnostico' | Kind, page = 1) {
@@ -37,8 +39,8 @@ export function WinthorCatalog({ token, onTokenChange }: { token: string; onToke
     try {
       const response = await fetch(`/api/winthor/${action}`, {
         method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify(action === 'health' || action === 'diagnostico' ? {} : {
-          codigo: code === '' ? null : Number(code), nome: name.trim(), pagina: page, tamanho: size,
+        body: JSON.stringify({ ...(connection ? { connection_id: connection.id, connection_revision: connection.revision } : {}),
+          ...(action === 'health' || action === 'diagnostico' ? {} : { codigo: code === '' ? null : Number(code), nome: name.trim(), pagina: page, tamanho: size }),
         }), signal: controller.signal, cache: 'no-store',
       })
       const data = await response.json()
@@ -69,6 +71,8 @@ export function WinthorCatalog({ token, onTokenChange }: { token: string; onToke
       <button className="oracle-test" type="button" onClick={() => { onTokenChange(''); reset(); setHealth(null) }}>Encerrar acesso</button>
     </form>
     <p className="notice">O token fica apenas na memória desta página. Ao encerrar o acesso ou recarregar, os resultados e o token são apagados. Não informe a senha Oracle aqui.</p>
+    <ConnectionManager token={token} onChange={selected => { reset(); setHealth(null); setConnection(selected) }}/>
+    {connection && <p className={connection.environment === 'PRODUCAO' ? 'production-destination' : 'notice'}>Consultas direcionadas a: {connection.name} — {connection.environment === 'PRODUCAO' ? 'PRODUÇÃO' : 'TESTE'}</p>}
     {health && <div className="connection-state" role="status">
       <strong>{health.modo === 'simulado' ? 'SIMULAÇÃO — dados fictícios, sem Oracle' : 'ORACLE — somente leitura'}</strong>
       <p>{health.mensagem}</p>

@@ -35,3 +35,17 @@ registro de autorização humana não é reconstruído por suposição.
 IDs, SHAs e passos de reprodução estão em [AutoDev](../AUTODEV.md#ensaio-observável-14).
 Os resultados finais de CI do PR de correção são registrados na descrição do
 próprio PR, evitando registrar um SHA anterior como se fosse o head final.
+
+## #21 — perfis Oracle persistentes para homologação Windows
+
+Depois do MVP #18/PR #19, a #21 e seu comentário de encaminhamento autorizaram
+um gerenciador local seguro. A branch feature/issue-21-secure-connections parte
+da main ddba0cc. O modelo usa DPAPI CurrentUser e diretório fora da instalação,
+com ACL privada e seleção não persistida. Não altera produção nem a conta Oracle.
+
+A migração preserva o ambiente anterior somente por escolha explícita e não
+retorna senha ao navegador. Revisões impedem abas antigas de consultar outro
+destino após troca/edição. [Guia técnico](../CONEXOES_SALVAS.md) registra limites,
+recuperação e critérios de validação. CI do PR distingue mocks Linux, DPAPI/ACL
+nativos Windows e homologação Oracle real ainda pendente. Não se inventa teste
+em cliente nem se conclui a #10 apenas por manter este registro.

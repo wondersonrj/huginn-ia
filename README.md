@@ -86,3 +86,10 @@ a demonstração e informe esse token em **Consultas WinThor**. O modo Oracle us
 credenciais somente no servidor e schema validado antes da leitura.
 [Instalação Windows, configuração segura e limitações](docs/WINTHOR_MVP.md).
 Não houve conexão Oracle real nesta entrega; o aceite automático usa dados sintéticos.
+
+## Conexões salvas no Windows
+
+O [gerenciador local de conexões](docs/CONEXOES_SALVAS.md) cadastra, edita, testa,
+seleciona e exclui perfis TESTE/PRODUÇÃO com senha protegida por DPAPI no usuário
+Windows. Após reiniciar, selecione a conexão salva sem reentrar a senha Oracle.
+A seleção é explícita e as consultas continuam somente leitura.
