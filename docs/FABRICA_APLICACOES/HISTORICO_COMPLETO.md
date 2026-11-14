@@ -27,7 +27,9 @@ registro de autorização humana não é reconstruído por suposição.
 3. Branch de correção deriva do head com falha e remove o teste proposital. A
    solução é proposta em PR, não implantada. Contratos e validação local/remota
    são evidências distintas da execução de um agente novo.
-4. Não houve merge, release, nova tag, escrita Oracle ou alteração de proteção.
+4. O PR descartável #15 e a issue de ensaio #16 foram encerrados. A issue fechada
+   ainda deduplicou antes de encerrar o PR. A solução está no [PR #17](https://github.com/wondersonrj/huginn-ia/pull/17).
+5. Não houve merge, release, nova tag, escrita Oracle ou alteração de proteção.
    O callback novo da main só poderá ser validado após integração humana.
 
 IDs, SHAs e passos de reprodução estão em [AutoDev](../AUTODEV.md#ensaio-observável-14).

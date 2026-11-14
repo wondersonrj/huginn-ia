@@ -18,8 +18,9 @@ Snapshot consultado em 14/11/2026 para a [issue #14](https://github.com/wonderso
 | [Issue #12](https://github.com/wondersonrj/huginn-ia/issues/12) | AutoDev: diagnosticar action_required nos workflows do PR #7 e restaurar validação segura | open | 2026-11-14T18:04:48Z / aberto | não atribuído | não se aplica |
 | [PR #13](https://github.com/wondersonrj/huginn-ia/pull/13) | ci: diagnosticar action_required e pausar AutoDev para aprovação humana | closed | 2026-11-14T18:10:25Z / 2026-11-14T18:18:56Z | não atribuído | `automation/issue-12-action-required` / `026730934fe6ab78ac5ef5527f02139c57e672e8`; merge: `a25c86644a911b7ce58375876ab41b5d10799045` em 2026-11-14T18:18:56Z |
 | [Issue #14](https://github.com/wondersonrj/huginn-ia/issues/14) | AutoDev fase 2: conectar falhas de CI ao Codex com correção via PR e documentação integral | open | 2026-11-14T18:26:51Z / aberto | não atribuído | não se aplica |
-| [PR #15](https://github.com/wondersonrj/huginn-ia/pull/15) | test: falha controlada AutoDev #14 — PR descartável, não integrar | open | 2026-11-14T18:30:29Z / aberto | não atribuído | `autodev/probe-issue14` / `58061e1eaa6580547fe063c9a644f6e2eead2322`; merge: não integrado |
-| [Issue #16](https://github.com/wondersonrj/huginn-ia/issues/16) | [AutoDev] Falha CI - execução 43626974817 | open | 2026-11-14T18:31:00Z / aberto | não atribuído | não se aplica |
+| [PR #15](https://github.com/wondersonrj/huginn-ia/pull/15) | test: falha controlada AutoDev #14 — PR descartável, não integrar | closed | 2026-11-14T18:30:29Z / 2026-11-14T18:36:57Z | não atribuído | `autodev/probe-issue14` / `58061e1eaa6580547fe063c9a644f6e2eead2322`; merge: não integrado |
+| [Issue #16](https://github.com/wondersonrj/huginn-ia/issues/16) | [AutoDev] Falha CI - execução 43626974817 | closed | 2026-11-14T18:31:00Z / 2026-11-14T18:36:48Z | não atribuído | não se aplica |
+| [PR #17](https://github.com/wondersonrj/huginn-ia/pull/17) | ci: integrar AutoDev ao Codex com handoff seguro, limites e evidência real | open | 2026-11-14T18:35:34Z / aberto | não atribuído | `autodev/fix/1a1f3918e9e4f0e90af65c1d422761e0029d8357894221b5789693dfe024cc33` / `574b119b3b1074dc9425a1d9943c005b3d885307`; merge: não integrado |
 
 ## Dependências e motivação verificadas
 
@@ -27,6 +28,6 @@ Snapshot consultado em 14/11/2026 para a [issue #14](https://github.com/wonderso
 - #4 propõe dependências, #5 introduz quality gates, #6 propõe documentação. #4/#6 seguem abertos na coleta; não são configuração ativa por mera existência.
 - #7 depende de #5 e introduz triage; #8 → PR #11 trata atualização/revalidação; #12 → PR #13 trata aprovação pendente. #7, #11 e #13 estão integrados na coleta.
 - #9 (Oracle real) e #10 (consolidação documental integral) permanecem abertos. Esta mudança não implementa consultas de clientes nem declara #10 concluída.
-- #14 implementa handoff manual seguro; #15 é ensaio descartável; #16 foi criada automaticamente pelo triage após a falha controlada. O PR de solução é indicado em seu próprio diff e na issue #16.
+- #14 implementa handoff manual seguro; #15 é ensaio descartável; #16 foi criada automaticamente pelo triage após a falha controlada. O PR de solução/correção é #17; #15 e #16 foram encerrados após o ensaio. O SHA de #17 nesta tabela é o da coleta anterior ao commit documental que a contém; o head final e os checks estão no próprio PR.
 
 Para workflow/checks e incidentes específicos, consulte [histórico](HISTORICO_COMPLETO.md) e [AutoDev](../AUTODEV.md). Lacunas de ações manuais anteriores e custos não disponíveis permanecem não verificadas.

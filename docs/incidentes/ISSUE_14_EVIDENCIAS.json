@@ -115,5 +115,14 @@
     "No secrets, raw logs or artifacts were fetched for this evidence.",
     "Correction PR CI evidence is recorded in the final PR description; this snapshot predates it.",
     "No merge, release, policy modification or production publication performed."
-  ]
+  ],
+  "cleanup": {
+    "probe_pr": 15,
+    "state": "closed",
+    "merged": false,
+    "test_issue": 16,
+    "test_issue_state": "closed",
+    "duplicate_after_issue_closed": "already_queued",
+    "correction_pr": 17
+  }
 }

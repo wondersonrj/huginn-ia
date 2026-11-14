@@ -346,9 +346,13 @@ ou stderr sensível; investigar permissões, sem reduzir proteções.
   da falha. Remove o teste deliberado, acrescenta segurança/documentação e abre
   o PR de solução, vinculando #14/#16. A tarefa já em execução neste chat foi
   autorizada pelo usuário, não disparada pela issue #16. Não existe URL de uma
-  nova tarefa automática e não se inventa uma. O PR descartável será fechado
-  sem merge após o registro das evidências.
+  nova tarefa automática e não se inventa uma. O PR descartável #15 e a issue de ensaio #16 foram encerrados sem merge;
+  antes de fechar o PR, outra execução sobre a issue já fechada retornou
+  already_queued. A solução está no [PR #17](https://github.com/wondersonrj/huginn-ia/pull/17).
 
+Validação local final: **186 aprovados, 1 ignorado**, incluindo 19 contratos do
+handoff; build TypeScript/Vite, npm audit de produção (zero vulnerabilidades),
+actionlint 1.7.12 e git diff --check passaram.
 Os resultados e IDs finais de CI constam no PR de solução. Testes locais incluem
 contratos negativos de fork, SHA antigo, evento/permissão, loop de correção,
 duplicação fechada, orçamento esgotado, texto hostil, preview sem escrita e erro
