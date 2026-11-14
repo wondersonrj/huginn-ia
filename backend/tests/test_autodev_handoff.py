@@ -1,5 +1,4 @@
 """Fail-closed metadata queue contracts; no Codex invocation or GitHub writes."""
-import copy
 import importlib.util
 from pathlib import Path
 from unittest.mock import Mock
@@ -98,7 +97,7 @@ def test_queue_writes_only_issue(monkeypatch):
 
 def test_closed_issue_deduplicates_rerun(monkeypatch):
     item = m.contract(*fixtures())
-    api, _, _, _ = setup(monkeypatch, [{'number': 20, 'state': 'closed', 'body': m.render(item)}])
+    api, _, _, _ = setup(monkeypatch, [{'number': 20, 'state': 'closed', 'body': m.render(item), 'user': {'login': 'github-actions[bot]'}}])
     assert m.prepare(123)['state'] == 'already_queued'
     assert all(len(c.args) == 1 for c in api.call_args_list)
 
@@ -137,3 +136,25 @@ def test_pagination_reads_all_pages(monkeypatch):
     monkeypatch.setattr(m, 'api', api)
     assert len(m.pages('issues?state=all')) == 101
     assert 'page=2' in api.call_args_list[-1].args[0]
+
+
+def test_new_signature_same_head_exhausts_budget(monkeypatch):
+    item = m.contract(*fixtures())
+    api, _, _, jobs = setup(monkeypatch, [{'number': 20, 'body': m.render(item),
+                                         'user': {'login': 'github-actions[bot]'}}])
+    jobs[0]['steps'][0]['number'] = 6
+    assert m.prepare(123)['state'] == 'budget_exhausted'
+    assert all(len(c.args) == 1 for c in api.call_args_list)
+
+
+def test_untrusted_issue_cannot_forge_queue_record(monkeypatch):
+    item = m.contract(*fixtures())
+    api, _, _, _ = setup(monkeypatch, [{'number': 20, 'body': m.render(item),
+                                      'user': {'login': 'attacker'}}])
+    assert m.prepare(123)['state'] == 'awaiting_human_start'
+
+
+def test_wrong_repository_rejected():
+    run, pr, jobs = fixtures()
+    run['repository']['full_name'] = 'attacker/repo'
+    assert m.contract(run, pr, jobs) is None

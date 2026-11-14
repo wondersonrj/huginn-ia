@@ -130,9 +130,19 @@ def prepare(run_id, output=None, existing_issue=None):
             stream.write('\n')
         return {'state': 'preview_only', 'key': item['key']}
     # Search both closed and open issues; reopening/retries cannot create loops.
+    same_head = None
     for issue in pages('issues?state=all'):
-        if marker(item) in (issue.get('body') or ''):
+        if issue.get('user', {}).get('login') not in {'github-actions[bot]', 'wondersonrj'}:
+            continue
+        body = issue.get('body') or ''
+        if marker(item) in body:
             return {'state': 'already_queued', 'issue': issue['number'], 'key': item['key']}
+        if ('<!-- autodev-handoff:v1:' in body
+                and f'"sha": "{item["sha"]}"' in body
+                and f'"workflow": "{WORKFLOW}"' in body):
+            same_head = issue['number']
+    if same_head is not None:
+        return {'state': 'budget_exhausted', 'issue': same_head, 'key': item['key']}
     if existing_issue is not None:
         issue = api(f'issues/{existing_issue}')
         # Explicit migration path for a legacy #7 triage issue, never arbitrary issues.

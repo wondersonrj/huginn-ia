@@ -192,3 +192,181 @@ casos originais. O teste ignorado depende do compartilhamento nativo de arquivos
 Windows. Build frontend e actionlint 1.7.12 passaram localmente; a auditoria npm
 de produção encontrou zero vulnerabilidades. A CI remota deve ser conferida
 também no PR da correção. Esses testes simulados não são aprovação dos runs do #7.
+
+## Fase 2 — issue #14: fila segura para Codex
+
+Esta seção é a operação atual proposta; as seções #8/#12 acima são registros
+históricos. O #7 foi integrado em 14/11/2026 às 15:24:30 de São Paulo
+(18:24:30 UTC), merge `5cb56375af95bed3d49ad76b40dc776905e522e3`.
+#11 e #13 também estão integrados. A documentação contínua atende parte da
+[issue #10](https://github.com/wondersonrj/huginn-ia/issues/10), que não é
+considerada encerrada por este trabalho.
+
+### Decisão de integração e autorização
+
+**Modo implementado: manual_codex_handoff. Nenhum agente é iniciado pela fila.**
+Investigação das fontes oficiais em 14/11/2026:
+
+- [Codex GitHub integration](https://developers.openai.com/codex/integrations/github):
+  `@codex review` pede revisão de PR em repositório conectado; não é API de
+  atribuição de issues ou garantia de criação de correção.
+- [Codex GitHub Action](https://developers.openai.com/codex/github-action):
+  `openai/codex-action@v1` executa `codex exec`; requer chave OpenAI, seleção de
+  sandbox, restrição de atores e proteção de privilégios. Não foi instalada,
+  configurada ou invocada nesta tarefa. Uma futura adoção exige autorização do
+  titular para credencial, orçamento, isolamento e alcance da execução.
+- [Codex Cloud](https://developers.openai.com/codex/cloud): uma tarefa pode ser
+  iniciada explicitamente com acesso ao repositório. A solicitação humana neste
+  chat é a autorização deste trabalho; não comprova automação issue → agente.
+
+Não se atribui a `copilot`, não se publica comentário para disparar outro agente,
+não se reutiliza sessão/token pessoal do Codex num runner, não se inventa endpoint
+de tarefas e não se presume que a conexão GitHub atual autoriza um serviço
+contínuo pago. O fallback foi escolhido porque não há, nesta tarefa, configuração
+autorizada e comprovada para despacho autônomo. Não se afirma inexistência global
+de APIs ou recursos do Codex. O contrato está pronto para uma futura integração
+revisada, mas a fila atual termina antes de qualquer chamada de modelo.
+
+### Arquitetura e auditoria de privilégios
+
+| Componente | Código executado / SHA | Token e escopo | Limite |
+| --- | --- | --- | --- |
+| Quality gates | merge ref do PR; SHA de entrada quando chamado pela validação | GITHUB_TOKEN contents:read | Python, frontend, audit; sem segredos herdados |
+| Immutable validation | definição da main no dispatch; checkout do SHA imutável do PR | contents:read | chama quality e Windows CI, sem publish |
+| Windows CI only | SHA recebido | contents:read | build, smoke, atualização/rollback e navegador |
+| Safe branch refresh | somente SHA confiável da main | contents/pull-requests/actions/statuses:write | update-branch com lease; pausa em action_required; sem código do PR |
+| Failure triage / handoff | workflow_run, checkout somente github.sha da main | actions:read, contents:read, issues:write | API de metadados e criação de issue; sem logs, artefatos, modelo ou escrita de código |
+| Windows portable | PR/main/tag conforme evento | contents:read em portable; write somente em publish | publish exige dispatch explícito, dono, tag, aprovação e environment |
+| Prepare test distribution | main autorizada e environment protegido | secret HUGINN_DISTRIBUTION_ADMIN_TOKEN temporário | administração de testes conforme manual próprio; não é credencial do handoff |
+| Prepare test release | main/dono com confirmação | contents/actions:write | tags de teste e despacho de release, nunca acionado pelo handoff |
+| Real release validation | tag v0.0.* intencional | contents:write | ensaio de release isolada com chave efêmera; não acionado nesta tarefa |
+
+O handoff não usa chave OpenAI, PAT, instalação adicional, secret de assinatura
+ou environment. Os nomes existentes `HUGINN_RELEASE_SIGNING_KEY`,
+`HUGINN_TEST_SIGNING_KEY_RECOVERY` e `HUGINN_DISTRIBUTION_ADMIN_TOKEN` pertencem
+à distribuição e não são lidos pelo agente da fila. Nenhum valor de secret é
+consultado ou documentado. `OPENAI_API_KEY` é apenas o nome exemplificado na
+fonte oficial para eventual adoção futura, não uma dependência configurada.
+
+### Contrato, deduplicação e limites
+
+`handoff.py` busca o run e o PR novamente por REST, valida repo/origem internos,
+evento pull_request, workflow permitido, resultado failure, PR aberto para main,
+SHA atual e associação entre PR/run. Fork, SHA antigo, action_required e workflows
+estranhos não são delegados. A origem é limitada aos quality gates do #7;
+falhas isoladas apenas no Windows não entram nessa fila inicial. Refresh e
+Windows continuam tendo diagnóstico próprio. Não se amplia silenciosamente a
+cobertura para workflow_dispatch ou releases.
+
+O contrato v1 contém repository, workflow, sha, source_pr, source_run,
+source_run_attempt, failure_signature, key, failures, mode, state,
+max_codex_attempts, correction_branch, required_checks e constraints. A assinatura
+é SHA256 dos identificadores permitidos dos jobs e números dos passos falhos,
+ordenados; não inclui mensagem de erro/log. Falhas diferentes no mesmo passo são
+agrupadas de propósito: menos detalhe evita transmitir informação sensível.
+A key é SHA256 de repo + workflow + SHA + assinatura. Run ID/attempt não mudam
+essa identidade. Marcador `autodev-handoff:v1:<key>` identifica o registro.
+
+Somente nomes fixos dos três jobs são convertidos a enums backend/frontend/audit.
+Nomes de passos, branch, título, corpo do PR, annotations, logs e artefatos não
+são copiados. Prompt pronto usa constantes e metadados validados, sem instruções
+de conteúdo arbitrário. Desconhecidos falham fechados. Conteúdo externo continua
+não confiável ao operador/agente; a leitura dos logs para diagnóstico ocorre no
+GitHub, sem anexá-los a tickets ou prompts externos.
+
+Issues abertas e fechadas são paginadas. Apenas registros criados pelo bot de
+Actions ou pelo dono autenticado são aceitos para deduplicação. Fechar uma issue
+não autoriza reabertura automática ou nova tentativa. Há no máximo **um registro
+por repo/workflow/SHA**, mesmo que a assinatura mude: nova assinatura retorna
+budget_exhausted e exige revisão humana. max_codex_attempts=1 é o limite do
+procedimento humano, não um contador de chamadas a um serviço inexistente.
+Um novo SHA pode formar novo incidente. Branches `autodev/fix/<key de 64 hex>`
+não geram delegação recursiva; falha de uma correção exige avaliação humana.
+Não use esse namespace em desenvolvimento comum.
+
+Concorrência global serializa o workflow de triage. REST Issues não fornece
+criação condicional atômica; não executar múltiplos CLIs manuais em paralelo.
+Chamadas de issues feitas com GITHUB_TOKEN podem não emitir novos eventos:
+o handoff é criado no próprio workflow_run, sem depender de issues/opened.
+Nenhum status verde, aprovação ou PR é fabricado pela fila. PR, revisão,
+backend, frontend, audit e Windows reais continuam exigidos pelo contrato;
+o ruleset observado exige portable do GitHub Actions 15368. Não se afirma que
+os outros três jobs são required por ruleset: são critérios de validação do fluxo.
+
+### Operação reproduzível
+
+1. Após integração manual deste PR, uma falha elegível nos quality gates cria
+   diretamente a issue com contrato e pedido pronto; não depende de outro evento.
+2. Mantenedor confere origem, contrato e permissões e inicia **uma tarefa explícita
+   no Codex**, com acesso ao repo, copiando o pedido fixo do handoff. Registra o
+   link/ID dessa tarefa e o PR resultante. A fila permanece awaiting_human_start
+   até existir evidência humana de início; texto da fila não comprova execução.
+3. Codex cria `autodev/fix/<key>`, diagnostica, corrige, atualiza docs e abre PR.
+   Falha, action_required ou necessidade de nova autoridade interrompem a etapa.
+   Não aprovar por API, não criar PAT, não instalar App nem fazer merge/deploy.
+4. Conferir resultados no head correto e revisar o diff antes de qualquer
+   integração humana. Esta tarefa não autoriza merge. Falha da correção não
+   inicia outro agente automaticamente; tentativa adicional requer nova decisão.
+
+Prévia local (leitura de metadados, nenhuma escrita no GitHub):
+
+```sh
+mkdir -p work
+python scripts/autodev/handoff.py --run-id RUN_ID --preview work/contrato.json
+```
+
+Migração explícita de uma issue legada do #7, por operador autorizado:
+
+```sh
+python scripts/autodev/handoff.py --run-id RUN_ID --existing-issue ISSUE_NUMBER
+```
+
+A migração aceita somente issue aberta, criada por github-actions[bot], com título
+e link do run exatos. Não altera issue arbitrária. A execução usual do workflow
+não usa esse argumento. Em erro de API, o job falha com mensagem fixa sem corpo
+ou stderr sensível; investigar permissões, sem reduzir proteções.
+
+### Ensaio observável #14
+
+- PR descartável [#15](https://github.com/wondersonrj/huginn-ia/pull/15), draft,
+  branch autodev/probe-issue14, head `58061e1eaa6580547fe063c9a644f6e2eead2322`.
+  Um único teste sem I/O falha deliberadamente; não pode ser integrado.
+- Quality [43626974817](https://github.com/wondersonrj/huginn-ia/actions/runs/43626974817):
+  backend falhou; frontend e audit passaram. O Windows também executa o pytest e
+  falha. GitHub mostrou BLOCKED; não foi tentado merge ou bypass.
+- Triage da main [43627014788](https://github.com/wondersonrj/huginn-ia/actions/runs/43627014788)
+  terminou success e criou automaticamente a [issue #16](https://github.com/wondersonrj/huginn-ia/issues/16).
+- Como a mudança deste PR ainda não está na main, o código novo foi executado
+  explicitamente nesta sessão para migrar essa issue autenticada. Resultado:
+  awaiting_human_start. Segunda execução: already_queued, mesma issue #16/key
+  `1a1f3918e9e4f0e90af65c1d422761e0029d8357894221b5789693dfe024cc33`.
+  Isto comprova o fallback manual e a deduplicação, não um dispatch do Codex.
+- A branch de correção usa exatamente esse namespace/key e deriva do commit
+  da falha. Remove o teste deliberado, acrescenta segurança/documentação e abre
+  o PR de solução, vinculando #14/#16. A tarefa já em execução neste chat foi
+  autorizada pelo usuário, não disparada pela issue #16. Não existe URL de uma
+  nova tarefa automática e não se inventa uma. O PR descartável será fechado
+  sem merge após o registro das evidências.
+
+Os resultados e IDs finais de CI constam no PR de solução. Testes locais incluem
+contratos negativos de fork, SHA antigo, evento/permissão, loop de correção,
+duplicação fechada, orçamento esgotado, texto hostil, preview sem escrita e erro
+sanitizado. O teste controlado não acessa Oracle nem dados de clientes. O caminho
+novo de workflow_run ainda precisa de validação após integração humana; o ensaio
+usou o triage da main e o CLI novo separadamente, sem declarar implantação.
+
+### Custos e pendências
+
+A fila usa minutos de Actions Linux para REST e armazenamento de issues. O
+ensaio também executa Windows e pipelines duplicados de CI; quotas e custo
+monetário da conta não estão disponíveis, portanto não se estima tarifa ou
+valor gasto. Não houve consumo de API OpenAI por workflow nem nova credencial.
+O trabalho desta sessão usa o acesso Codex já fornecido pelo usuário; não se
+infere seu plano/preço. Uma futura Action do Codex exige orçamento explícito,
+credencial protegida, decisão de retenção e isolamento antes de ativação.
+
+Continuam humanos: início de tarefa pelo contrato, confirmação de tentativa,
+revisão e merge, aprovações GitHub quando exigidas, habilitação/assinatura de
+release e produção. Os últimos itens não foram executados. A issue #10 segue
+aberta para consolidar todo o histórico anterior; o [inventário](FABRICA_APLICACOES/MATRIZ_ISSUES_PRS.md)
+registra a coleta sem converter lacunas em fatos.
