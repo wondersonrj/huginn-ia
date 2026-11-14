@@ -1,0 +1,128 @@
+{
+  "observed_at_utc": "2026-11-14T18:34:45.997738+00:00",
+  "repository": "wondersonrj/huginn-ia",
+  "issue": 14,
+  "source_pr": {
+    "number": 15,
+    "head_sha": "58061e1eaa6580547fe063c9a644f6e2eead2322",
+    "draft": true,
+    "mergeable_state": "blocked",
+    "merged": false
+  },
+  "failure_run": {
+    "id": 43626974817,
+    "event": "pull_request",
+    "path": ".github/workflows/autodev-quality.yml",
+    "head_sha": "58061e1eaa6580547fe063c9a644f6e2eead2322",
+    "status": "completed",
+    "conclusion": "failure"
+  },
+  "failure_jobs": [
+    {
+      "id": 132544982253,
+      "name": "Dependency audit",
+      "conclusion": "success"
+    },
+    {
+      "id": 132544982509,
+      "name": "Frontend build (Node 20)",
+      "conclusion": "success"
+    },
+    {
+      "id": 132544982537,
+      "name": "Backend tests (Python 3.12)",
+      "conclusion": "failure"
+    }
+  ],
+  "triage_run": {
+    "id": 43627014788,
+    "event": "workflow_run",
+    "path": ".github/workflows/autodev-failure-triage.yml",
+    "head_sha": "5cb56375af95bed3d49ad76b40dc776905e522e3",
+    "status": "completed",
+    "conclusion": "success"
+  },
+  "queue_issue": {
+    "number": 16,
+    "author": "github-actions[bot]",
+    "url": "https://github.com/wondersonrj/huginn-ia/issues/16",
+    "marker_present": true
+  },
+  "contract": {
+    "schema_version": 1,
+    "key": "1a1f3918e9e4f0e90af65c1d422761e0029d8357894221b5789693dfe024cc33",
+    "repository": "wondersonrj/huginn-ia",
+    "workflow": ".github/workflows/autodev-quality.yml",
+    "sha": "58061e1eaa6580547fe063c9a644f6e2eead2322",
+    "failure_signature": "66a04c5f17bdb9ae93cfc3d0278b41ff9379e33fa715b91ef6555a9df026877c",
+    "source_pr": 15,
+    "source_run": 43626974817,
+    "source_run_attempt": 1,
+    "failures": [
+      {
+        "job": "backend",
+        "failed_steps": [
+          5
+        ]
+      }
+    ],
+    "state": "awaiting_human_start",
+    "mode": "manual_codex_handoff",
+    "max_codex_attempts": 1,
+    "correction_branch": "autodev/fix/1a1f3918e9e4f0e90af65c1d422761e0029d8357894221b5789693dfe024cc33",
+    "required_checks": [
+      "backend",
+      "frontend",
+      "audit",
+      "Windows portable"
+    ],
+    "constraints": [
+      "PR required",
+      "no merge",
+      "no release",
+      "no main writes",
+      "no protection changes",
+      "no Oracle writes",
+      "no raw logs or secrets in handoff"
+    ]
+  },
+  "manual_cli_observations": [
+    "preview_only",
+    "awaiting_human_start",
+    "already_queued"
+  ],
+  "required_status_rules": [
+    {
+      "type": "required_status_checks",
+      "parameters": {
+        "strict_required_status_checks_policy": true,
+        "do_not_enforce_on_create": false,
+        "required_status_checks": [
+          {
+            "context": "portable",
+            "integration_id": 15368
+          }
+        ]
+      },
+      "ruleset_source_type": "Repository",
+      "ruleset_source": "wondersonrj/huginn-ia",
+      "ruleset_id": 27247820
+    }
+  ],
+  "limitations": [
+    "Triage ran the old trusted main; the new handoff CLI was run explicitly by this authorized session.",
+    "No new Codex task was started by an issue, assignee, comment or API. Mode is manual fallback.",
+    "No secrets, raw logs or artifacts were fetched for this evidence.",
+    "Correction PR CI evidence is recorded in the final PR description; this snapshot predates it.",
+    "No merge, release, policy modification or production publication performed."
+  ],
+  "cleanup": {
+    "probe_pr": 15,
+    "state": "closed",
+    "merged": false,
+    "test_issue": 16,
+    "test_issue_state": "closed",
+    "duplicate_after_issue_closed": "already_queued",
+    "correction_pr": 17
+  }
+}

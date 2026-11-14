@@ -75,3 +75,5 @@ O fluxo de atualização segura de branches e revalidação dos checks está em
 [docs/AUTODEV.md](docs/AUTODEV.md).
 O [manual mestre da fábrica](docs/MANUAL_MESTRE.md) reúne os limites de autoridade
 e o procedimento para workflows que aguardam aprovação humana.
+A fase 2 usa [handoff manual seguro ao Codex](docs/AUTODEV.md#fase-2--issue-14-fila-segura-para-codex),
+com [histórico e guias da fábrica](docs/FABRICA_APLICACOES/HISTORICO_COMPLETO.md).

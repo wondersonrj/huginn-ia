@@ -35,3 +35,32 @@ ocorre depois da integração manual do PR #7.
 [atualizações Windows](ATUALIZACOES_WINDOWS.md) documentam controles independentes.
 Aprovar workflows de CI não autoriza release, secrets de assinatura, deployment
 ou ativação de clientes. Produção continua sujeita à autorização humana própria.
+
+## Fase 2 e índice navegável — issues #14 e #10
+
+A fábrica propõe agora fila manual segura AutoDev → Codex, com contrato,
+deduplicação, limite de um incidente por workflow/SHA e sem agente autônomo.
+[Arquitetura, tokens, fontes oficiais, limites e ensaio #14](AUTODEV.md#fase-2--issue-14-fila-segura-para-codex).
+
+- [Histórico, decisões e incidentes](FABRICA_APLICACOES/HISTORICO_COMPLETO.md).
+- [Inventário de issues/PRs, branches, commits, estados e datas](FABRICA_APLICACOES/MATRIZ_ISSUES_PRS.md).
+- [Guia de reprodução](FABRICA_APLICACOES/GUIA_REPRODUCAO.md).
+- [Operação diária e manutenção](FABRICA_APLICACOES/OPERACAO_E_MANUTENCAO.md).
+
+O #7 já está integrado. O ensaio descartável #15 produziu falha observada e issue
+#16 pelo workflow real da main. O código novo preparou o handoff de #16 por CLI
+nesta sessão e deduplicou uma segunda execução. O PR de solução deriva desse
+commit, remove o teste deliberado e executa CI real. Este é um teste de fallback,
+não evidência de API autônoma Codex ou de workflow novo já implantado na main.
+
+### Changelog documental
+
+- #8 → PR #11: política estrita, atualização com lease e revalidação imutável.
+- #12 → PR #13: aprovação humana pendente, pausa explícita e evidência sanitizada.
+- #14: integração manual segura, contrato v1, ensaio controlado e índice contínuo
+  da #10. Inventário da coleta incluído; custos, ações humanas anteriores sem
+  evidência e futura API/credencial permanecem explicitamente não verificados.
+
+A [issue #10](https://github.com/wondersonrj/huginn-ia/issues/10) continua aberta
+para consolidação integral. Não se muda seu estado só por criar documentação.
+Nenhuma página deste manual autoriza merge, produção ou credenciais adicionais.
