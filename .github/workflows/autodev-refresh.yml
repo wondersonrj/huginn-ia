@@ -1,0 +1,31 @@
+name: AutoDev safe branch refresh
+on:
+  push:
+    branches: [main]
+  schedule:
+    - cron: '*/15 * * * *'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: autodev-safe-refresh
+  cancel-in-progress: false
+jobs:
+  refresh:
+    if: github.repository == 'wondersonrj/huginn-ia' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+      pull-requests: write
+      actions: write
+      statuses: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - name: Refresh and reconcile immutable validation (trusted main code only)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python scripts/autodev/refresh.py

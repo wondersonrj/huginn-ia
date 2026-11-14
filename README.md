@@ -70,3 +70,6 @@ Procedimento de chaves, canais e aprovação: [Distribuição por GitHub Release
 Preparação administrativa automatizada do canal de testes: [cliques no GitHub](docs/PREPARAR_TESTES_PELO_GITHUB.md). Chaves privadas ficam nos cofres protegidos, sem artefatos; produção e clientes permanecem desativados.
 
 O fluxo de testes suporta administrador único: despacho manual com `PREPARAR TESTES SEM PRODUCAO`, aprovação pelo próprio dono, PR e CI obrigatórios, sem habilitar produção.
+
+O fluxo de atualização segura de branches e revalidação dos checks está em
+[docs/AUTODEV.md](docs/AUTODEV.md).
