@@ -12,7 +12,7 @@ permissions:
   issues: write
 
 concurrency:
-  group: autodev-failure-handoff
+  group: autodev-failure-handoff-${{ github.event.workflow_run.head_sha }}
   cancel-in-progress: false
 
 jobs:

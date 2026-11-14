@@ -284,7 +284,8 @@ Um novo SHA pode formar novo incidente. Branches `autodev/fix/<key de 64 hex>`
 não geram delegação recursiva; falha de uma correção exige avaliação humana.
 Não use esse namespace em desenvolvimento comum.
 
-Concorrência global serializa o workflow de triage. REST Issues não fornece
+Concorrência por SHA serializa o workflow de triage para a mesma identidade,
+sem substituir eventos pendentes de commits diferentes. REST Issues não fornece
 criação condicional atômica; não executar múltiplos CLIs manuais em paralelo.
 Chamadas de issues feitas com GITHUB_TOKEN podem não emitir novos eventos:
 o handoff é criado no próprio workflow_run, sem depender de issues/opened.

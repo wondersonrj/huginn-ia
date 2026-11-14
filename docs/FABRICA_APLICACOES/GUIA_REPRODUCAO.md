@@ -13,7 +13,7 @@
 4. Integrar por revisão o refresh/revalidate. Seu controlador fica na main e não
    executa código/artefatos do PR. Usar lease e SHA imutável; tratar conflitos e
    action_required sem bypass. Um token de escrita não vai para os testes.
-5. Integrar o triage/handoff desta proposta. Usar concurrency global, somente
+5. Integrar o triage/handoff desta proposta. Usar concurrency por SHA, somente
    metadata REST e filtro de PR interno. Não habilitar issues/opened para chamar
    um agente automaticamente. O workflow privilegiado usa a definição da main.
 6. Validar a fila com o ensaio abaixo. Somente depois considerar qualquer nova
