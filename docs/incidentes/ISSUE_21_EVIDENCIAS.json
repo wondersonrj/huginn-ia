@@ -10,7 +10,7 @@
     "fallback": "Existing environment only, explicit after managed catalog; no plaintext persistence fallback"
   },
   "linux_validation": {
-    "passed": 270,
+    "passed": 271,
     "skipped": 2,
     "production_ui_demo_api": "passed",
     "native_dpapi": "not available on Linux",

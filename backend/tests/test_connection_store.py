@@ -422,3 +422,17 @@ def test_saved_supplier_query_keeps_schema_validation_and_binds(api_store):
     assert cur.execute.call_args_list[1].args[1]['table_name'] == 'PCFORNEC'
     assert cur.execute.call_args.args[1]['codigo'] == 3
     con.commit.assert_not_called(); con.close.assert_called_once()
+
+
+def test_packaging_excludes_even_accidental_vault_copies(tmp_path):
+    import importlib.util
+    spec = importlib.util.spec_from_file_location('connection_build', Path(__file__).parents[2] / 'packaging/windows/build.py')
+    build = importlib.util.module_from_spec(spec); spec.loader.exec_module(build)
+    source = tmp_path / 'source'; source.mkdir()
+    (source / '__init__.py').write_text('# distributable application code')
+    private = source / 'accidental-copy'; private.mkdir()
+    for name in ['profiles.json', 'fixture.dpapi', '.env', 'interrupted.tmp']:
+        (private / name).write_bytes(b'synthetic-private-marker')
+    build.copy_backend(source, tmp_path / 'destination')
+    assert (tmp_path / 'destination/__init__.py').is_file()
+    assert not any(p.is_file() for p in (tmp_path / 'destination/accidental-copy').rglob('*'))

@@ -18,6 +18,13 @@ RUNTIME_URL = f'https://api.nuget.org/v3-flatcontainer/python/{PYTHON_VERSION}/p
 RUNTIME_SHA256 = '0eb85c2dfccccf1b17352de4c397f69194035b7d37149eacc16f1147d93de3b8'
 
 
+def copy_backend(source, destination):
+    # Defense in depth: local vaults are outside the app, but accidental copies
+    # of these files must not turn into distributable/support artifacts.
+    shutil.copytree(source, destination, ignore=shutil.ignore_patterns(
+        '__pycache__', '*.pyc', '*.dpapi', 'profiles.json', '.env', '*.tmp'))
+
+
 def build(output, version=None, channel=None, enable_updates=False, public_key_file=None):
     config = json.loads((REPO / "packaging/windows/version.json").read_text())
     config["version"] = version or config["version"]
@@ -64,8 +71,7 @@ def build(output, version=None, channel=None, enable_updates=False, public_key_f
         ], check=True)
         payload = root / 'versions' / config['version']
         payload.mkdir(parents=True)
-        shutil.copytree(REPO / 'backend/app', payload / 'backend/app',
-                        ignore=shutil.ignore_patterns('__pycache__', '*.pyc'))
+        copy_backend(REPO / 'backend/app', payload / 'backend/app')
         shutil.copytree(REPO / 'frontend/dist', payload / 'frontend/dist')
         shutil.copy2(REPO / 'packaging/windows/server.py', payload / 'server.py')
         (payload / 'version.json').write_text(json.dumps(config, indent=2), encoding='utf-8')

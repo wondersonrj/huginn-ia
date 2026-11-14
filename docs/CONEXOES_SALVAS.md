@@ -171,7 +171,7 @@ DPAPI Windows. IDs/SHAs e resultados finais ficam no PR da #21.
 
 ## Registro de validação desta proposta
 
-Local Linux: 270 testes aprovados, 2 ignorados (DPAPI nativo e compartilhamento
+Local Linux: 271 testes aprovados, 2 ignorados (DPAPI nativo e compartilhamento
 de arquivo nativo Windows). Build TypeScript/Vite, auditoria npm de produção
 (zero vulnerabilidades), actionlint 1.7.12 e git diff --check aprovados. Chromium
 sobre o pacote de produção passou com API demo real, mostrando o caminho sem
@@ -184,3 +184,9 @@ a validação textual de ACL falhou porque icacls gerou UTF-16 sem BOM e usa ali
 de SID. O teste foi corrigido para consultar a DACL real via WinAPI, exigir flag
 protegida, duas ACEs de acesso total e exatamente os SIDs do usuário e SYSTEM em
 diretório/arquivos. Não foi removido teste nem flexibilizada a política.
+
+O empacotamento também exclui profiles.json, *.dpapi, .env e temporários mesmo
+se forem copiados por engano para backend/app. Um teste negativo exercita a
+cópia do código com esses arquivos sintéticos presentes; o smoke do ZIP recusa
+blobs/cofres no artefato. O SID Windows é lido sem depender da codificação do
+nome de usuário exibido pelo sistema.

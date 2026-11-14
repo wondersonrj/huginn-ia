@@ -20,8 +20,9 @@ def windows_identity():
     if not ctypes.windll.kernel32.GetSystemDirectoryW(buffer, len(buffer)):
         raise VaultError('Windows identity unavailable')
     result = subprocess.run([str(Path(buffer.value) / 'whoami.exe'), '/user', '/fo', 'csv', '/nh'],
-                            capture_output=True, text=True, check=False)
-    for row in csv.reader(io.StringIO(result.stdout)):
+                            capture_output=True, check=False)
+    # Only the ASCII SID is used; ignore locale-specific encoding of the username.
+    for row in csv.reader(io.StringIO(result.stdout.decode('utf-8', errors='replace'))):
         if result.returncode == 0 and len(row) == 2 and re.fullmatch(r'S-1-(?:\d+-)+\d+', row[1].strip()):
             return row[1].strip()
     raise VaultError('Windows identity unavailable')
