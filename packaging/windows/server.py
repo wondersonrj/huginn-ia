@@ -1,4 +1,4 @@
-"""Portable, loopback-only server. Oracle secrets come from the local inherited environment; never saved here."""
+"""Portable, loopback-only server. Oracle profiles use user-bound Windows protection; never expose secrets."""
 from pathlib import Path
 import socket
 import sys
@@ -56,7 +56,7 @@ def main():
 
     print('HUGINN IA - http://127.0.0.1:8000')
     print('Mantenha esta janela aberta. Para encerrar, pressione Ctrl+C.')
-    print('Oracle: teste somente leitura, sem salvar credenciais.')
+    print('Oracle: somente leitura; perfis salvos com protecao Windows por usuario.')
     threading.Thread(target=open_when_ready, daemon=True).start()
     try:
         if sys.platform == 'win32':

@@ -303,13 +303,52 @@ print('NATIVE-RESTART-OK')'''
     result = subprocess.run([sys.executable, '-I', '-c', script, str(Path(__file__).parents[1]), str(store.root)],
                             input=PASSWORD, capture_output=True, text=True, timeout=30)
     assert result.returncode == 0 and result.stdout.strip() == 'NATIVE-RESTART-OK'
-    # Native ACL export contains descriptors only, not file content/credentials.
-    acl = tmp_path / 'acl-proof.txt'
-    result = subprocess.run(['icacls.exe', str(store.root), '/save', str(acl), '/t', '/q'], capture_output=True)
-    assert result.returncode == 0
-    descriptor = acl.read_text(encoding='utf-16')
-    assert sid in descriptor and (';;;SY)' in descriptor or 'S-1-5-18' in descriptor)
-    assert ';;;WD)' not in descriptor and ';;;BU)' not in descriptor and ';;;AU)' not in descriptor
+    # Inspect the live DACL through WinAPI, not locale/alias/BOM-dependent text.
+    import ctypes
+    from ctypes import wintypes
+    advapi = ctypes.WinDLL('advapi32', use_last_error=True)
+    kernel = ctypes.WinDLL('kernel32', use_last_error=True)
+    advapi.GetNamedSecurityInfoW.argtypes = [wintypes.LPCWSTR, wintypes.DWORD, wintypes.DWORD,
+        ctypes.c_void_p, ctypes.c_void_p, ctypes.POINTER(ctypes.c_void_p), ctypes.c_void_p,
+        ctypes.POINTER(ctypes.c_void_p)]
+    advapi.GetNamedSecurityInfoW.restype = wintypes.DWORD
+    advapi.GetSecurityDescriptorControl.argtypes = [ctypes.c_void_p, ctypes.POINTER(wintypes.WORD), ctypes.POINTER(wintypes.DWORD)]
+    advapi.GetSecurityDescriptorControl.restype = wintypes.BOOL
+    advapi.GetAclInformation.argtypes = [ctypes.c_void_p, ctypes.c_void_p, wintypes.DWORD, wintypes.DWORD]
+    advapi.GetAclInformation.restype = wintypes.BOOL
+    advapi.GetAce.argtypes = [ctypes.c_void_p, wintypes.DWORD, ctypes.POINTER(ctypes.c_void_p)]
+    advapi.GetAce.restype = wintypes.BOOL
+    advapi.ConvertSidToStringSidW.argtypes = [ctypes.c_void_p, ctypes.POINTER(ctypes.c_void_p)]
+    advapi.ConvertSidToStringSidW.restype = wintypes.BOOL
+    kernel.LocalFree.argtypes = [ctypes.c_void_p]
+    kernel.LocalFree.restype = ctypes.c_void_p
+    class AclSize(ctypes.Structure):
+        _fields_ = [('count', wintypes.DWORD), ('used', wintypes.DWORD), ('free', wintypes.DWORD)]
+    for path in [store.root, *store.root.iterdir()]:
+        descriptor, acl = ctypes.c_void_p(), ctypes.c_void_p()
+        assert advapi.GetNamedSecurityInfoW(str(path), 1, 4, None, None, ctypes.byref(acl), None, ctypes.byref(descriptor)) == 0
+        try:
+            control, revision = wintypes.WORD(), wintypes.DWORD()
+            assert advapi.GetSecurityDescriptorControl(descriptor, ctypes.byref(control), ctypes.byref(revision))
+            assert control.value & 0x1000  # SE_DACL_PROTECTED
+            info = AclSize()
+            assert advapi.GetAclInformation(acl, ctypes.byref(info), ctypes.sizeof(info), 2)
+            assert info.count == 2
+            allowed = set()
+            for index in range(info.count):
+                ace = ctypes.c_void_p()
+                assert advapi.GetAce(acl, index, ctypes.byref(ace))
+                assert ctypes.c_ubyte.from_address(ace.value).value == 0  # ACCESS_ALLOWED_ACE_TYPE
+                assert ctypes.c_uint32.from_address(ace.value + 4).value & 0x1f01ff == 0x1f01ff
+                text = ctypes.c_void_p()
+                assert advapi.ConvertSidToStringSidW(ace.value + 8, ctypes.byref(text))
+                try:
+                    allowed.add(ctypes.wstring_at(text))
+                finally:
+                    kernel.LocalFree(text)
+            assert allowed == {sid, 'S-1-5-18'}
+        finally:
+            kernel.LocalFree(descriptor)
 
 
 def test_credential_creation_failure_is_atomic(store, monkeypatch):

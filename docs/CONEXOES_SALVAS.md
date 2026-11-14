@@ -178,3 +178,9 @@ sobre o pacote de produção passou com API demo real, mostrando o caminho sem
 persistência no Linux e mantendo as regressões de consultas/XML/atualização.
 O caminho Windows nativo é registrado com run/SHA na descrição do PR. Não se
 usa aprovação Linux como evidência de DPAPI, ACL Windows ou Oracle real.
+
+No primeiro run Windows do PR, DPAPI e recuperação em processo novo passaram;
+a validação textual de ACL falhou porque icacls gerou UTF-16 sem BOM e usa aliases
+de SID. O teste foi corrigido para consultar a DACL real via WinAPI, exigir flag
+protegida, duas ACEs de acesso total e exatamente os SIDs do usuário e SYSTEM em
+diretório/arquivos. Não foi removido teste nem flexibilizada a política.
