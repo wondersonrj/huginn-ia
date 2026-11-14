@@ -89,3 +89,106 @@ pendente, fork, lease concorrente, idempotência, SHA/ator divergentes e dispatc
 explícito. `npm ci`, `npm run build` e `npm audit --omit=dev --audit-level=high`
 validam o frontend. O PR executa também o pipeline Windows real. Os testes do
 controlador usam API simulada para não atualizar PRs ou emitir statuses fictícios.
+
+## Incidente #12: aprovação pendente antes dos jobs
+
+Investigação em 14/11/2026. Evidência sanitizada:
+[ISSUE_12_EVIDENCIAS.json](incidentes/ISSUE_12_EVIDENCIAS.json).
+Os três runs abaixo são de **pull_request**, não de workflow_dispatch:
+
+| Workflow | Run | Resultado | Jobs |
+| --- | --- | --- | --- |
+| Quality gates | [43624333390](https://github.com/wondersonrj/huginn-ia/actions/runs/43624333390) | action_required | 0 |
+| Immutable validation | [43624333601](https://github.com/wondersonrj/huginn-ia/actions/runs/43624333601) | action_required | 0 |
+| Windows portable | [43624333649](https://github.com/wondersonrj/huginn-ia/actions/runs/43624333649) | action_required | 0 |
+
+As três páginas públicas dizem exatamente: **“This workflow is awaiting approval
+from a maintainer in #7”**. Esta é a causa comprovada da ausência de jobs:
+o GitHub exige aprovação do workflow antes de executar o código. Não é uma
+falha dos testes, conflito de merge ou aprovação de deployment. Os endpoints
+pending_deployments estão vazios. O endpoint de logs consultado retornou 404.
+
+O PR é interno, do proprietário `wondersonrj`, com author_association OWNER;
+os três eventos têm ator e triggering_actor `github-actions[bot]`, após a
+atualização automática. Não se deve inferir que o PR é de um fork ou atribuir
+o bloqueio a uma configuração específica de contribuidores: as três APIs de
+políticas (`actions/permissions`, `actions/permissions/workflow` e
+`actions/permissions/fork-pr-contributor-approval`) responderam 403. A mensagem
+da interface comprova a aprovação pendente, mas não revela qual configuração
+interna provocou esse requisito para o evento do bot. Essa limitação permanece
+explícita, sem tentar mudar políticas.
+
+### O que o refresh realmente executou
+
+O run [43624310820](https://github.com/wondersonrj/huginn-ia/actions/runs/43624310820)
+foi um push na main `12b147ad3780025ce816c6fd092380cef5d68c6a`, com job refresh
+132536638929 aprovado. A atualização colocou o PR #7 no head
+`3e9280e9b17aa31060dcc8d9e2598c982a9e43e9`, contendo essa main. A função retorna
+imediatamente após update-branch, por ser uma operação assíncrona. O próximo
+passo depende de outra execução agendada ou manual do controlador.
+
+Na coleta de 18:08 UTC (15:08 em São Paulo), a API listou **zero** runs de
+workflow_dispatch do workflow imutável e somente esse run do refresh. Portanto
+não houve dispatch comprovado, nem evidência de recusa de autorização de um
+dispatch: ele não foi tentado nesse caminho. O sucesso do controlador só
+comprova a atualização. A ausência da segunda passagem naquele intervalo não
+prova defeito no cron, que não tem garantia de execução pontual pelo GitHub.
+
+O status REST do novo head está vazio. O PR está mergeable, mas bloqueado.
+O required `portable`, vinculado ao GitHub Actions 15368 e com política estrita,
+continua exigido. Não há evidência de testes aprovados para esse head nem de
+PR #7 liberado pelo GitHub. Os resultados anteriores do PR #11 não aprovam #7.
+
+### Correção proposta e comportamento após integração
+
+- Antes de atualizar ou despachar, o controlador procura runs dos três workflows
+  de PR com action_required, conferindo número do PR, SHA e origem interna.
+  Bloqueios de outro PR/SHA/workflow não são usados como autorização ou resultado.
+- Se houver bloqueio, registra comentário deduplicado com links e orientação ao
+  mantenedor e retorna approval_required. Não atualiza novamente a branch,
+  não chama a API de aprovação, não despacha outra validação e não publica status.
+  Um dispatch que também termine action_required recebe o mesmo tratamento,
+  sem ser convertido em falha de teste ou reexecutado indefinidamente.
+- O resumo de Actions e stdout distinguem update_requested,
+  dispatch_requested, approval_required, validation_in_progress e resultado
+  verificado. Erros de API agora encerram o controlador com código 1, em vez
+  de um sucesso silencioso. O controlador verde não substitui os required checks.
+- Runs de pull_request passam a ter nome com PR/SHA, em vez de autodev---;
+  a identidade usada para reconciliar workflow_dispatch continua inalterada.
+- Depois da aprovação humana, a passagem seguinte reavalia os metadados atuais.
+  Só retoma dispatch/reconciliação se não houver bloqueio. Mantém lease, execução
+  em SHA imutável, validação de ator/definição e exigência dos quatro jobs reais.
+
+Essa correção só passa a reger a automação após revisão e merge manual. A versão
+atualmente na main ainda não possui a parada explícita por action_required;
+esta investigação não a executou nem alterou sua configuração. Não é possível
+prometer interrupção global da versão antiga apenas abrindo um PR.
+
+### Etapa humana necessária — interrompida nesta investigação
+
+O proprietário/mantenedor deve abrir o [PR #7](https://github.com/wondersonrj/huginn-ia/pull/7),
+conferir Files changed e os workflows no head indicado, e abrir cada run acima.
+Na faixa de aprovação pendente, clicar em **Approve and run workflows**
+(**Aprovar e executar workflows**) se exibido. Se a aprovação estiver agrupada
+no PR, revisar os workflows listados e confirmar apenas o grupo correspondente.
+Não é **Review deployments / Approve and deploy** e não autoriza produção.
+Se o botão não aparecer, um mantenedor com acesso deve inspecionar o motivo na
+interface; não conceder PAT, instalar App, reduzir regras ou alterar Settings.
+
+Esta aprovação não foi realizada nem simulada. Nenhum dispatch/rerun alternativo
+foi provocado para superar o bloqueio. Após a aprovação, conferir jobs reais,
+SHA, required portable e estado de merge no GitHub; só o GitHub pode confirmar
+a liberação. O teste de falha controlada do triage continua adiado até o merge
+manual do PR #7. A invocação atual do agente foi explícita no chat para a issue
+#12; isso não demonstra integração automática entre issues e Codex.
+
+### Validação da correção
+
+A suíte local passou com **167 testes aprovados e 1 ignorado**. Os 24 contratos
+do controlador cobrem aprovação pendente em PR e dispatch, ausência de update,
+dispatch e status durante bloqueio, comentário deduplicado, retomada após
+aprovação, SHA/origem divergentes e saída não zero em erro de API, além dos
+casos originais. O teste ignorado depende do compartilhamento nativo de arquivos
+Windows. Build frontend e actionlint 1.7.12 passaram localmente; a auditoria npm
+de produção encontrou zero vulnerabilidades. A CI remota deve ser conferida
+também no PR da correção. Esses testes simulados não são aprovação dos runs do #7.

@@ -16,7 +16,7 @@ def pr(**overrides):
                 base={'ref': 'main', 'repo': {'full_name': m.REPO}}, **overrides)
 
 
-def fixture_api(monkeypatch, behind=0, pull=None, jobs=None, statuses=None):
+def fixture_api(monkeypatch, behind=0, pull=None, jobs=None, statuses=None, pr_runs=None):
     def call(path, method='GET', data=None):
         if method != 'GET':
             return None
@@ -29,7 +29,15 @@ def fixture_api(monkeypatch, behind=0, pull=None, jobs=None, statuses=None):
         raise AssertionError(path)
     mock = Mock(side_effect=call)
     monkeypatch.setattr(m, 'api', mock)
-    monkeypatch.setattr(m, 'pages', lambda path, key=None: jobs if '/jobs?' in path else (statuses or []))
+    def paginated(path, key=None):
+        if '/jobs?' in path:
+            return jobs
+        if path.startswith('actions/runs?event=pull_request'):
+            return pr_runs or []
+        if path.endswith('/statuses'):
+            return statuses or []
+        return []
+    monkeypatch.setattr(m, 'pages', paginated)
     return mock
 
 
@@ -131,3 +139,89 @@ def test_stale_or_forged_run_not_reported(monkeypatch):
     forged = run(); forged['actor'] = {'login': 'attacker'}
     m.refresh(7, BASE, [stale, forged])
     assert all(not c[0].startswith('statuses/') for c in writes(mock))
+
+
+def blocked_pr_run(run_id=456):
+    return dict(id=run_id, event='pull_request', head_sha=HEAD,
+                path='.github/workflows/autodev-quality.yml', conclusion='action_required',
+                pull_requests=[dict(number=7, head={'sha': HEAD, 'repo': {'id': 1}},
+                                    base={'repo': {'id': 1}})])
+
+
+def test_pr_approval_stops_before_update_dispatch_or_status(monkeypatch):
+    mock = fixture_api(monkeypatch, behind=1, pr_runs=[blocked_pr_run()])
+    assert m.refresh(7, BASE, []) == 'approval_required'
+    changes = writes(mock)
+    assert len(changes) == 1 and changes[0][0] == 'issues/7/comments'
+    assert 'Approve and run workflows' in changes[0][2]['body']
+    assert '/actions/runs/456' in changes[0][2]['body']
+    assert not any(c.args[0].startswith('compare/') for c in mock.call_args_list)
+
+
+def test_dispatch_approval_is_not_a_test_failure_or_retried(monkeypatch):
+    mock = fixture_api(monkeypatch)
+    assert m.refresh(7, BASE, [run('action_required')]) == 'approval_required'
+    assert len(writes(mock)) == 1
+    assert writes(mock)[0][0] == 'issues/7/comments'
+
+
+@pytest.mark.parametrize('field,value', [('head_sha', BASE), ('event', 'push'),
+                                      ('path', '.github/workflows/unrelated.yml'),
+                                      ('conclusion', 'success')])
+def test_unrelated_or_approved_pr_runs_do_not_block(monkeypatch, field, value):
+    r = blocked_pr_run(); r[field] = value
+    mock = fixture_api(monkeypatch, pr_runs=[r])
+    assert m.refresh(7, BASE, []) == 'dispatch_requested; tests_not_yet_verified'
+    assert writes(mock)[0][0].endswith('/dispatches')
+
+
+@pytest.mark.parametrize('other_pr,fork', [(8, False), (7, True)])
+def test_other_pr_or_fork_approval_is_not_current_approval(monkeypatch, other_pr, fork):
+    r = blocked_pr_run(); r['pull_requests'][0]['number'] = other_pr
+    if fork:
+        r['pull_requests'][0]['head']['repo']['id'] = 2
+    mock = fixture_api(monkeypatch, pr_runs=[r])
+    m.refresh(7, BASE, [])
+    assert writes(mock)[0][0].endswith('/dispatches')
+
+
+def test_approval_comment_is_deduplicated(monkeypatch):
+    mock = fixture_api(monkeypatch, pr_runs=[blocked_pr_run()])
+    m.refresh(7, BASE, [])
+    body = writes(mock)[0][2]['body']
+    saved_pages = m.pages
+    monkeypatch.setattr(m, 'pages', lambda path, key=None:
+                        [{'body': body}] if path.endswith('/comments') else saved_pages(path, key))
+    mock.reset_mock()
+    m.refresh(7, BASE, [])
+    assert writes(mock) == []
+
+
+def test_approval_then_approved_real_jobs_resume(monkeypatch):
+    fixture_api(monkeypatch, pr_runs=[blocked_pr_run()])
+    assert m.refresh(7, BASE, []) == 'approval_required'
+    approved = blocked_pr_run(); approved['conclusion'] = 'success'
+    mock = fixture_api(monkeypatch, jobs=jobs(), pr_runs=[approved])
+    assert m.refresh(7, BASE, [run()]) == 'validation_success'
+    assert writes(mock)[0][2]['state'] == 'success'
+
+
+def test_api_error_is_not_silent_success(monkeypatch):
+    def get(path, method='GET', data=None):
+        return {'object': {'sha': BASE}}
+    monkeypatch.setattr(m, 'api', get)
+    monkeypatch.setattr(m, 'pages', lambda path, key=None: [] if key == 'workflow_runs' else [pr()])
+    monkeypatch.setattr(m, 'refresh', Mock(side_effect=m.ApiError('denied')))
+    notify = Mock(); monkeypatch.setattr(m, 'notify', notify)
+    with pytest.raises(SystemExit) as error:
+        m.main()
+    assert error.value.code == 1
+    notify.assert_called_once()
+
+
+def test_summary_distinguishes_controller_from_test_result(monkeypatch, tmp_path, capsys):
+    summary = tmp_path / 'summary.md'
+    monkeypatch.setenv('GITHUB_STEP_SUMMARY', str(summary))
+    m.report(7, 'approval_required')
+    assert 'PR #7: approval_required' in summary.read_text()
+    assert 'approval_required' in capsys.readouterr().out
