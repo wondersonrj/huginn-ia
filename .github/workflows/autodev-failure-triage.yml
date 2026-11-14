@@ -1,0 +1,50 @@
+name: AutoDev failure triage
+
+on:
+  workflow_run:
+    workflows:
+      - HUGINN AutoDev quality gates
+    types: [completed]
+
+permissions:
+  actions: read
+  contents: read
+  issues: write
+
+jobs:
+  triage:
+    if: ${{ github.event.workflow_run.conclusion == 'failure' && github.event.workflow_run.event == 'pull_request' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Register failure for investigation
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RUN_ID: ${{ github.event.workflow_run.id }}
+          RUN_URL: ${{ github.event.workflow_run.html_url }}
+          HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+          HEAD_BRANCH: ${{ github.event.workflow_run.head_branch }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          # workflow_run runs in a privileged context: never checkout or execute PR code.
+          # Only GitHub-generated metadata is included; do not attach raw logs or secrets.
+          TITLE="[AutoDev] Falha CI - execução ${RUN_ID}"
+          BODY=$(cat <<EOF
+          ## Falha detectada automaticamente
+          - Execução: ${RUN_URL}
+          - Commit: \`${HEAD_SHA}\`
+          - Branch informada pelo GitHub: \`${HEAD_BRANCH}\`
+          - Resultado: failure
+
+          ## Próxima ação
+          1. Revisar os jobs com falha e os logs diretamente no GitHub Actions.
+          2. Corrigir em branch de trabalho, sem escrever diretamente na main.
+          3. Atualizar testes e documentação quando necessário.
+          4. Abrir/atualizar PR e aguardar os checks obrigatórios.
+
+          **Importante:** este issue não executa Codex automaticamente. Não incluir credenciais, XML reais ou logs sensíveis no ticket.
+          EOF
+          )
+          gh issue create --title "$TITLE" --body "$BODY"
