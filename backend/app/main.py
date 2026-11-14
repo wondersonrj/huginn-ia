@@ -12,9 +12,38 @@ import json
 import os
 from app.oracle_connector import OracleConfig, check_connection, connection_diagnostic
 from app.schema_diagnostic import inspect_schema
+from app.winthor_api import router as winthor_router, authorize, record
+import time
+import uuid
 
 app = FastAPI(title="HUGINN IA API", version="0.1.0")
 app.add_middleware(CORSMiddleware, allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"], allow_credentials=False, allow_methods=["GET", "POST"], allow_headers=["*"])
+app.include_router(winthor_router)
+
+
+@app.middleware("http")
+async def private_oracle_responses(request: Request, call_next):
+    if request.url.path.startswith("/api/oracle/"):
+        started, request_id, status = time.monotonic(), uuid.uuid4().hex, 500
+        try:
+            authorize(request)
+        except HTTPException as exc:
+            from starlette.responses import JSONResponse
+            response = JSONResponse({"detail": exc.detail}, status_code=exc.status_code,
+                                    headers=exc.headers)
+        else:
+            response = await call_next(request)
+        status = response.status_code
+        action = {"/api/oracle/testar": "legacy_health", "/api/oracle/diagnostico": "legacy_diagnostic"}.get(request.url.path, "legacy_unknown")
+        record(action, request_id, started, status)
+        response.headers["X-Request-ID"] = request_id
+    else:
+        response = await call_next(request)
+    if request.url.path.startswith(("/api/winthor/", "/api/oracle/")):
+        response.headers["Cache-Control"] = "no-store"
+    return response
+
+
 MAX_XML = 5 * 1024 * 1024
 
 

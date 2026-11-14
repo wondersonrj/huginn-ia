@@ -70,7 +70,7 @@ def test_diagnostic_closes_connection_on_failure(stage):
 
 
 def client(host='127.0.0.1'):
-    return TestClient(app, client=(host, 1234))
+    return TestClient(app, base_url='http://127.0.0.1:8000', headers={'Authorization': 'Bearer ' + 't' * 40}, client=(host, 1234))
 
 
 def test_endpoint_passes_only_validated_connection_config():
@@ -112,3 +112,8 @@ def test_endpoint_rejects_malformed_json():
         response = client().post('/api/oracle/diagnostico', content=b'{broken', headers={'Content-Type': 'application/json'})
     assert response.status_code == 422
     inspect.assert_not_called()
+
+
+@pytest.fixture(autouse=True)
+def legacy_test_token(monkeypatch):
+    monkeypatch.setenv('HUGINN_API_TOKEN', 't' * 40)

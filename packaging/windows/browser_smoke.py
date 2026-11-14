@@ -1,6 +1,7 @@
 """Production UI tests from ZIP. Mock Oracle responses: never call Oracle.
 Windows CI uses bundled runtime. --python is Linux-only evidence.
 """
+import os
 import argparse
 import json
 from pathlib import Path
@@ -20,7 +21,8 @@ def run(package, python=None, browser_path=None):
         cfg['updates_enabled'] = False
         (root / 'bootstrap.json').write_text(json.dumps(cfg))
         with tempfile.TemporaryFile() as log:
-            proc = subprocess.Popen([str(python or root / 'runtime/python.exe'), '-I', str(root/'launcher.py'), '--no-browser'], stdout=log, stderr=log)
+            proc = subprocess.Popen([str(python or root / 'runtime/python.exe'), '-I', str(root/'launcher.py'), '--no-browser'], stdout=log, stderr=log,
+                                    env={**os.environ, 'HUGINN_WINTHOR_MODE': 'demo', 'HUGINN_API_TOKEN': 'synthetic-browser-token-' + 'x' * 32})
             try:
                 with sync_playwright() as p:
                     options = dict(headless=True)
@@ -40,9 +42,45 @@ def run(package, python=None, browser_path=None):
                                 log.seek(0)
                                 raise AssertionError(log.read().decode(errors='replace'))
                             time.sleep(.1)
-                    expect(page.get_by_role('heading', name='Painel de entrada NF-e')).to_be_visible()
+                    expect(page.get_by_role('heading', name='HUGINN IA · Consulta WinThor')).to_be_visible()
                     expect(page.get_by_role('button', name='Atualizar agora')).to_be_disabled()
                     expect(page.get_by_text('Versão atual: '+cfg['version'], exact=False)).to_be_visible()
+                    # Exercise the real authenticated demo API, not route mocks/Oracle.
+                    page.get_by_label('Token de acesso local', exact=True).fill('synthetic-browser-token-' + 'x' * 32)
+                    page.get_by_role('button', name='Verificar conexão WinThor').click()
+                    expect(page.get_by_text('SIMULAÇÃO — dados fictícios, sem Oracle', exact=True)).to_be_visible()
+                    page.get_by_role('button', name='Buscar cadastros').click()
+                    table = page.get_by_role('table', name='Cadastros WinThor')
+                    expect(table.get_by_role('row')).to_have_count(21)
+                    expect(table.get_by_role('cell', name='Produto demonstrativo 001', exact=True)).to_be_visible()
+                    page.get_by_role('button', name='Próxima página').click()
+                    expect(table.get_by_role('cell', name='Produto demonstrativo 021', exact=True)).to_be_visible()
+                    page.get_by_role('button', name='Página anterior').click()
+                    expect(table.get_by_role('cell', name='Produto demonstrativo 001', exact=True)).to_be_visible()
+                    page.get_by_label('Nome ou descrição', exact=True).fill('055')
+                    page.get_by_role('button', name='Buscar cadastros').click()
+                    expect(table.get_by_role('row')).to_have_count(2)
+                    expect(table.get_by_role('cell', name='Produto demonstrativo 055', exact=True)).to_be_visible()
+                    page.get_by_label('Cadastro', exact=True).select_option('fornecedores')
+                    page.get_by_label('Código do cadastro', exact=True).fill('3')
+                    page.get_by_role('button', name='Buscar cadastros').click()
+                    expect(table.get_by_role('cell', name='Fornecedor demonstrativo 003', exact=True)).to_be_visible()
+                    page.get_by_label('Código do cadastro', exact=True).fill('99999')
+                    page.get_by_role('button', name='Buscar cadastros').click()
+                    expect(page.get_by_text('Nenhum cadastro encontrado para os filtros informados.', exact=True)).to_be_visible()
+                    page.get_by_role('button', name='Conferir estrutura de consulta').click()
+                    expect(page.get_by_text('Estrutura simulada. Nenhuma coluna foi confirmada em Oracle real.', exact=True)).to_be_visible()
+                    page.get_by_label('Cadastro', exact=True).select_option('produtos')
+                    page.route('**/api/winthor/produtos', lambda route: route.fulfill(status=502, json=dict(detail='Consulta indisponível simulada')))
+                    page.get_by_role('button', name='Buscar cadastros').click()
+                    expect(page.get_by_role('alert')).to_have_text('Consulta indisponível simulada')
+                    page.unroute('**/api/winthor/produtos')
+                    page.get_by_role('button', name='Buscar cadastros').click()
+                    expect(table.get_by_role('row')).to_have_count(21)
+                    page.get_by_role('button', name='Encerrar acesso').click()
+                    expect(page.get_by_label('Token de acesso local', exact=True)).to_have_value('')
+                    expect(table).to_have_count(0)
+                    expect(page.get_by_role('button', name='Buscar cadastros')).to_be_disabled()
                     calls = []
                     def diagnostic(route):
                         calls.append(route.request.post_data_json)
@@ -103,7 +141,7 @@ def run(package, python=None, browser_path=None):
                     assert page.evaluate('document.documentElement.scrollWidth <= window.innerWidth')
                     assert page.evaluate('localStorage.length') == 0
                     assert not errors,errors
-                    print('PASS: production panel, metadata owners/columns/missing, field validation, credential clearing, connection mocked, failure mocked, XML, updates disabled/enabled approval UI/reload (mocked), mobile, no JS errors')
+                    print('PASS: authenticated catalog demo real API, products/suppliers, pagination, filters, empty/error/recovery, schema demo, logout, production panel, metadata owners/columns/missing, field validation, credential clearing, connection mocked, failure mocked, XML, updates disabled/enabled approval UI/reload (mocked), mobile, no JS errors')
                     browser.close()
             finally:
                 if (root/'state').exists():

@@ -57,3 +57,15 @@ cada tentativa e deve ser preenchida novamente para repetir a operação.
 A suíte inclui verificação da consulta exata, parâmetros autorizados, ausência
 de commits, separação de proprietários, erro/fechamento e restrições da API.
 Resultados Oracle de sucesso foram simulados; não substituem validação real.
+
+## Consultas funcionais — issue #18
+
+As consultas de PCPRODUT/PCFORNEC usam agora configuração do servidor, token local,
+validação do schema antes de cada leitura e auditoria. O formulário avulso desta
+página também passou a exigir o token de **Consultas WinThor**; não configura a
+conexão das buscas. A topologia TOTVS Cloud depende de rede privada/autorização
+real, sem comprová-la por código. O procedimento atual completo está em
+[WINTHOR_MVP.md](WINTHOR_MVP.md), incluindo schema, limites, instalação e aceite
+real pendente. A seção histórica “TOTVS Cloud será implementado” acima descrevia
+somente o escopo anterior ao novo fluxo; nesta versão usa-se o mesmo Thin quando
+a rede é autorizada. Não houve ensaio com Oracle de cliente nesta tarefa.

@@ -9,7 +9,17 @@ HUGINN IA - Windows portatil x64
    nao encerra o servidor. Se a porta 8000 estiver ocupada, encerre o programa
    que a utiliza e tente novamente.
 
-ORACLE 19c
+CONSULTAS WINTHOR
+Configure HUGINN_API_TOKEN na sessao local antes de iniciar, sem exibir
+ou persistir segredos. Informe esse token na secao Consultas WinThor.
+HUGINN_WINTHOR_MODE=demo usa cadastros ficticios e NAO conecta a Oracle.
+Para oracle, configure host, porta, service, usuario SELECT, senha e owner
+por ambiente no servidor. Veja docs/WINTHOR_MVP.md para passos seguros.
+O painel busca codigo/nome de produtos e fornecedores, com filtros e
+paginacao. O schema e conferido antes da consulta. Nao escreve no ERP.
+Encerrar acesso limpa token/resultados da pagina; nao encerra o servidor.
+
+ORACLE 19c - DIAGNOSTICO AVULSO
 Na secao Conexao Oracle direta, preencha host/IP, porta (normalmente 1521),
 Service Name (nao SID), usuario SOMENTE LEITURA autorizado pelo DBA e senha.
 Clique em Testar conexao Oracle. A senha e limpa apos cada tentativa. Nenhum
@@ -24,8 +34,9 @@ ALL_TABLES para os nomes fixos PCPRODUT, PCFORNEC, PCPRODFILIAL, PCPRODFORNEC,
 PCNFENT, PCMOV e PCPEDIDO. Mostra proprietario, coluna e tipo, separando
 proprietarios diferentes. Nao resolve sinonimos. Nao visivel pode significar
 objeto inexistente OU falta de permissao, nao uma ausencia confirmada.
-A sessao e fechada sem commit. Nao ha SQL livre, DML, DDL ou leitura de
-registros comerciais. Para repetir uma operacao, informe a senha novamente.
+A sessao do diagnostico e fechada sem commit. Esse diagnostico nao le
+registros comerciais. As buscas da secao Consultas WinThor leem somente
+codigo e nome autorizados, sem SQL livre, DML ou DDL. Para repetir uma operacao, informe a senha novamente.
 Uma resposta positiva confirma apenas o teste DUAL; nao valida mapeamento,
 permissoes em tabelas ou integracao fiscal. Use exclusivamente conta de leitura.
 
@@ -49,8 +60,8 @@ BUILD-INFO.json para versoes e checksum da origem do runtime. Testes Linux
 nao substituem executar este ZIP no Windows. Nao foi validada uma conexao
 com Oracle real. Nao ha credenciais reais neste pacote.
 
-Nao exponha este servidor local a rede/Internet. Nao ha autenticacao de
-usuarios nesta versao demonstrativa. As licencas do Python estao em
+Nao exponha este servidor local a rede/Internet. Consultas e diagnosticos Oracle exigem token local de 32+ caracteres;
+nao ha login individual/multiusuario. Consulte docs/WINTHOR_MVP.md. As licencas do Python estao em
 runtime/LICENSE.txt; as de dependencias ficam nos respectivos *.dist-info.
 
 ATUALIZACAO E RECUPERACAO

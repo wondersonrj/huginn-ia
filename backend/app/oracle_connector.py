@@ -15,6 +15,11 @@ def connection_diagnostic(exc: Exception) -> str:
         "ORA-28001": "Senha Oracle expirada. Solicite a atualização ao DBA.",
         "ORA-12514": "Service Name não reconhecido pelo listener. Confirme o serviço com o DBA.",
         "DPY-6001": "Service Name não reconhecido pelo listener. Confirme o serviço com o DBA.",
+        "ORA-00942": "Tabela não visível. Confira schema e privilégios SELECT com o DBA.",
+        "ORA-00904": "Coluna incompatível. Execute o diagnóstico e consulte o DBA.",
+        "ORA-01031": "Privilégios insuficientes. Solicite apenas leitura ao DBA.",
+        "ORA-12170": "Tempo de conexão excedido. Confira rede e firewall com o DBA.",
+        "ORA-01013": "Consulta interrompida por timeout. Reduza o filtro e consulte o DBA.",
         "ORA-12541": "Listener indisponível. Verifique host, porta e firewall.",
         "DPY-6005": "Não foi possível alcançar o listener. Verifique host, porta, rede e firewall.",
         "DPY-3010": "Versão do servidor incompatível com o driver Thin. Este pacote é destinado ao Oracle 19c.",
@@ -54,6 +59,8 @@ def connect_readonly(cfg: OracleConfig):
     """A conta Oracle DEVE ter somente SELECT; sessão read-only é proteção adicional."""
     cfg.validate()
     import oracledb
+    if not oracledb.is_thin_mode():
+        raise ValueError("O conector requer python-oracledb Thin")
     dsn = oracledb.makedsn(cfg.host, cfg.port, service_name=cfg.service)
     connection = oracledb.connect(
         user=cfg.user, password=cfg.password, dsn=dsn,
