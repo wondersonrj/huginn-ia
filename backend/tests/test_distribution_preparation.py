@@ -228,7 +228,7 @@ def test_bootstrap_does_not_require_a_second_person():
     api=FakeAPI()
     prep.require_bootstrap_guard(api,12)
     api.environments[prep.BOOTSTRAP]['protection_rules'][0]['prevent_self_review']=True
-    with pytest.raises(prep.PreparationError,match='administrador'):
+    with pytest.raises(prep.PreparationError,match='Prevent self-review'):
         prep.require_bootstrap_guard(api,12)
 
 
@@ -252,3 +252,48 @@ def test_test_release_cannot_be_dispatched_by_another_actor(monkeypatch):
     with patch.object(sys,'argv',['prepare_test_release.py','--version','0.3.0']),patch('prepare_test_release.api') as api:
         assert prepare_test_release.main()==1
         api.assert_not_called()
+
+
+@pytest.mark.parametrize('condition,message', [
+    ('reviewer', 'Required reviewers'),
+    ('self_review', 'Prevent self-review'),
+    ('branch_mode', 'Selected branches and tags'),
+    ('missing_main', 'main explicitamente'),
+    ('extra_branch', 'políticas adicionais'),
+    ('main_tag', 'políticas adicionais'),
+])
+def test_bootstrap_reports_exact_failed_guard_without_mutations(condition,message):
+    api=FakeAPI()
+    environment=api.environments[prep.BOOTSTRAP]
+    if condition=='reviewer':
+        environment['protection_rules'][0]['reviewers']=[]
+    elif condition=='self_review':
+        environment['protection_rules'][0]['prevent_self_review']=True
+    elif condition=='branch_mode':
+        environment['deployment_branch_policy']=dict(protected_branches=True,custom_branch_policies=False)
+    elif condition=='missing_main':
+        api.policies[prep.BOOTSTRAP]=[]
+    elif condition=='extra_branch':
+        api.policies[prep.BOOTSTRAP].append(dict(name='*',type='branch'))
+    elif condition=='main_tag':
+        api.policies[prep.BOOTSTRAP]=[dict(name='main',type='tag')]
+    with pytest.raises(prep.PreparationError,match=message):
+        prep.require_bootstrap_guard(api,12)
+    assert all(method=='GET' for method,_,_ in api.calls)
+    assert not api.private
+
+
+@pytest.mark.parametrize('status,optional_result',[(403,False),(404,True)])
+def test_cleanup_does_not_treat_forbidden_as_success(status,optional_result):
+    import urllib.error
+    from unittest.mock import MagicMock
+    opener=MagicMock()
+    opener.open.side_effect=urllib.error.HTTPError('https://api.github.com',status,'failure',{},None)
+    with patch.object(prep.urllib.request,'build_opener',return_value=opener):
+        api=prep.API('test-placeholder')
+        path=prep.BASE+'/environments/'+prep.BOOTSTRAP+'/secrets/'+prep.ADMIN_SECRET
+        if optional_result:
+            assert api.request('DELETE',path,optional=True) is None
+        else:
+            with pytest.raises(prep.PreparationError,match='HTTP 403'):
+                api.request('DELETE',path,optional=True)

@@ -94,8 +94,12 @@ def require_bootstrap_guard(api,administrator_id):
     environment=inspect_environment(api,BOOTSTRAP)
     allowed,prevent=reviewers(environment or {})
     policy=(environment or {}).get('deployment_branch_policy') or {}
-    if allowed!=[dict(type='User',id=administrator_id)] or prevent or not policy.get('custom_branch_policies'):
-        raise PreparationError('Configure distribution-bootstrap com somente o administrador como Required reviewer, Prevent self-review desmarcado e apenas main.')
+    if allowed!=[dict(type='User',id=administrator_id)]:
+        raise PreparationError('Configure distribution-bootstrap: Required reviewers deve conter somente o administrador autorizado.')
+    if prevent:
+        raise PreparationError('distribution-bootstrap: Prevent self-review está ativado; o modelo de administrador único exige revisão manual da configuração.')
+    if not policy.get('custom_branch_policies'):
+        raise PreparationError('distribution-bootstrap: selecione Selected branches and tags e permita somente a branch main.')
     policies=api.items(BASE+'/environments/'+BOOTSTRAP+'/deployment-branch-policies','branch_policies')
     if not any(p['name']=='main' and p.get('type','branch')=='branch' for p in policies):
         raise PreparationError('distribution-bootstrap precisa permitir main explicitamente.')
