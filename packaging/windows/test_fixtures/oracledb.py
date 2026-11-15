@@ -47,8 +47,20 @@ class Cursor:
             return
         assert connection.readonly and connection.call_timeout == 5000
         event = None
-        if sql == 'SELECT 1 FROM DUAL':
+        if sql.startswith('SELECT SYS_CONTEXT('):
+            self.rows = [('WINT', 'SYNTHETIC')]; event = 'session_context'
+        elif sql == 'SELECT 1 FROM DUAL':
             self.rows = [(1,)]; event = 'dual'
+        elif 'FROM all_synonyms' in sql:
+            self.rows = []; event = 'synonyms'
+        elif 'SELECT DISTINCT owner' in sql:
+            self.rows = [('WINT',)]; event = 'owners'
+        elif 'WHERE 1 = 0' in sql:
+            if '"WRONG"' in sql: fail('ORA-00942')
+            if connection.service == 'NOSELECT': fail('ORA-00942')
+            from types import SimpleNamespace
+            self.description = [('CODE', SimpleNamespace(name='DB_TYPE_NUMBER')), ('NAME', SimpleNamespace(name='DB_TYPE_VARCHAR'))]
+            self.rows = []; event = 'select_projection'
         elif 'FROM all_tab_columns' in sql:
             assert set(binds) == {'owner', 'table_name', 'code_column', 'name_column'}
             assert binds['table_name'] in {'PCPRODUT', 'PCFORNEC'}

@@ -15,7 +15,7 @@ import urllib.request
 
 ROOT = Path(__file__).resolve().parent
 sys.path.insert(0, str(ROOT))
-from desktop import access_token, app_mutex, installation_id, show_error, verify_instance, recovery_confirmed, diagnostic
+from desktop import build_commit, access_token, app_mutex, installation_id, show_error, verify_instance, recovery_confirmed, diagnostic
 from updater import Updater, UpdateError, atomic_json, discover, exclusive_lock
 
 
@@ -77,7 +77,7 @@ class Supervisor:
             env['HUGINN_DESKTOP_SESSION'] = '1'
             env['HUGINN_INSTALLATION_ID'] = installation_id(self.root)
             env['HUGINN_RUNNING_VERSION'] = version
-            env['HUGINN_RUNNING_BUILD'] = json.loads((self.root / 'BUILD-INFO.json').read_text())['source_commit']
+            env['HUGINN_RUNNING_BUILD'] = build_commit(self.root, version)
         if self.socket is None:
             self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             if sys.platform == 'win32':

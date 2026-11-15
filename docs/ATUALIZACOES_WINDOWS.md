@@ -101,3 +101,39 @@ entrada inválida (sem conexão Oracle), XML e instância concorrente.
 O parâmetro `--python /caminho/venv/bin/python` permite executar esses testes em
 Linux usando código extraído do ZIP. Isso **não executa os binários Windows**.
 O workflow usa `windows-latest` e não passa esse parâmetro.
+
+## Preparação da próxima geração — #25 (0.3.0)
+
+Auditoria: o bootstrap 0.2.0 distribuído e o novo instalador de homologação estão
+com `updates_enabled=false`. Push/PR/main não habilitam distribuição. Não foi
+publicada release ou usada chave privada de distribuição nesta tarefa.
+
+Novo bootstrap exige `source_commit` SHA Git de 40 dígitos no manifesto assinado;
+confere sua igualdade no version.json do payload antes de encerrar a versão atual.
+A prova de identidade desktop usa o commit **da versão ativa**, não o BUILD-INFO
+do instalador inicial. Corrige a identificação incorreta após update de outro
+commit. Versão crescente, canal, runtime, Ed25519, SHA256, URL e rollback continuam
+obrigatórios. Não existe downgrade nem aceitação de manifesto sem assinatura.
+
+Bloqueio de ativação: requer release TESTE revisada, chave real em custódia/secret
+do environment autorizado, assinatura válida com a chave pública embarcada e
+aprovação Windows de distribuição/ativação, conforme DISTRIBUICAO_RELEASES.md.
+Não criamos chave fictícia de distribuição e não habilitamos publicação. Chaves
+efêmeras usadas somente em fixtures de CI não integram o artifact nem habilitam
+confiança de cliente. Verificação pode ser automática; aplicação do update mantém
+confirmação explícita/nativa, sem aceitar tempo decorrido como aprovação.
+
+O cliente 0.2.0 já instalado **não passa a se atualizar por este PR**: seu supervisor
+é imutável e está desativado. Para migrar o próprio bootstrap será necessário um
+instalador de atualização aprovado (artifact 0.3.0 nesta tarefa, unsigned e apenas
+homologação), na mesma pasta/usuário, com o HUGINN fechado pela interface. Ele
+preserva o cofre DPAPI, conexões e senha; não exige reboot. Após bootstrap confiável
+habilitado e releases assinadas aprovadas, updates compatíveis do código/UI chegam
+pelo supervisor sem reinstalação; runtime/bootstrap incompatível continua exigindo
+manutenção explícita. Não prometemos atualização silenciosa do cliente existente.
+
+CI exercita no Windows processo desktop com DPAPI: versões de commits distintos,
+falha de rede antes de parar a aplicação, update assinado, versão quebrada/rollback,
+preferências e todos os bytes do perfil/token preservados. Instalador separado
+exercita reinstalação/upgrade, app ativo bloqueando manutenção e serviço alheio
+preservado. Estado e credenciais não integram o ZIP nem a extração do update.

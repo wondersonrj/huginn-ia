@@ -112,7 +112,7 @@ async def handle(request, action):
                                                 query.codigo, query.nome, query.pagina, query.tamanho)
                 count = len(result['itens'])
         except winthor.SchemaUnavailable:
-            raise HTTPException(409, 'Schema não confirmado: solicite ao DBA SELECT nas tabelas e confira as colunas exigidas no diagnóstico') from None
+            raise HTTPException(409, 'Schema não confirmado: execute Diagnosticar estrutura; confira owner e colunas. Não é possível presumir falta de SELECT.') from None
         except HTTPException:
             raise
         except Exception as exc:

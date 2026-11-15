@@ -29,6 +29,18 @@ def run(package, python=None):
         config['updates_enabled'] = True  # test fixture only; shipped bootstrap stays disabled
         supervisor = Supervisor(root, config, python)
         engine = supervisor.updater
+        vault = None
+        vault_snapshot = None
+        if sys.platform == 'win32':
+            from desktop import access_token
+            supervisor.desktop = True
+            supervisor.access = access_token(root, config['version'])
+            from app.connection_store import current_store
+            store = current_store()
+            store.save(dict(name='Update synthetic', environment='TESTE', host='127.0.0.1', port=1521,
+                            service='SYNTHETIC', user='reader', owner='WINT'), 'synthetic-update-only')
+            vault = store.root
+            vault_snapshot = {p.name: p.read_bytes() for p in vault.iterdir() if p.name != 'connections.lock'}
         old = config['version']
         major, minor, patch = map(int, old.split('.'))
         good = f'{major}.{minor}.{patch + 1}'
@@ -36,6 +48,7 @@ def run(package, python=None):
         atomic_json(engine.state / 'current.json', {'version': old})
         (engine.state / 'preferences.json').write_text('{"theme":"dark"}')
         def release(version, broken=False):
+            commit = hashlib.sha256(version.encode()).hexdigest()[:40]
             buffer = io.BytesIO()
             prefix = f'HUGINN-IA-Windows-x64/versions/{version}/'
             with zipfile.ZipFile(buffer, 'w') as z:
@@ -43,13 +56,13 @@ def run(package, python=None):
                     if path.is_file() and '__pycache__' not in path.parts:
                         relative = path.relative_to(root / 'versions' / old).as_posix()
                         if relative == 'version.json':
-                            z.writestr(prefix + relative, json.dumps(config | {'version':version}))
+                            z.writestr(prefix + relative, json.dumps(config | {'version':version, 'source_commit':commit}))
                         elif relative == 'server.py' and broken:
                             z.writestr(prefix + relative, 'raise SystemExit(42)\n')
                         else:
                             z.writestr(prefix + relative, path.read_bytes())
             data = buffer.getvalue()
-            signed = dict(version=version, channel=config['channel'], notes='Synthetic integration fixture',
+            signed = dict(source_commit=commit, version=version, channel=config['channel'], notes='Synthetic integration fixture',
                           url=f'https://github.com/wondersonrj/huginn-ia/releases/download/v{version}/HUGINN-IA-Windows-x64.zip',
                           sha256=hashlib.sha256(data).hexdigest(), runtime_id=config['runtime_id'], bootstrap_version=1)
             canonical = json.dumps(signed,sort_keys=True,separators=(',',':'),ensure_ascii=True).encode()
@@ -58,6 +71,12 @@ def run(package, python=None):
             supervisor.start(old)
             print(f"::notice title=Update integration::Version {old} started on {sys.platform}", flush=True)
             manifest, payload = release(good)
+            def offline(url): raise UpdateError('Synthetic network outage')
+            try:
+                engine.apply(manifest, supervisor.stop, supervisor.start, lambda data: True, offline)
+                raise AssertionError('Network failure must preserve live app')
+            except UpdateError:
+                assert engine.current() == old and supervisor.process.poll() is None
             engine.apply(manifest, supervisor.stop, supervisor.start, lambda data: True, lambda url: payload)
             assert engine.current() == good
             print(f"::notice title=Update integration::Version {good} activated on {sys.platform}", flush=True)
@@ -71,6 +90,9 @@ def run(package, python=None):
             assert supervisor.process.poll() is None
             assert (engine.state / 'preferences.json').read_text() == '{"theme":"dark"}'
             assert not (engine.state / 'journal.json').exists()
+            if vault is not None:
+                assert vault_snapshot == {p.name: p.read_bytes() for p in vault.iterdir() if p.name != 'connections.lock'}
+                print('PASS: Windows DPAPI profile/token preserved byte-for-byte across signed different-commit update, network outage and rollback')
             print(f'PASS: real processes {old}->{good}, failed {bad}->{good} rollback, version health and preferences; platform={sys.platform}')
         except Exception as error:
             print(f"::error title=Update integration::{type(error).__name__}: {error}", flush=True)
@@ -79,6 +101,8 @@ def run(package, python=None):
             supervisor.stop()
             if supervisor.socket is not None:
                 supervisor.socket.close()
+            if vault is not None:
+                shutil.rmtree(vault)  # this test installation/user only
 
 
 if __name__ == '__main__':

@@ -174,6 +174,8 @@ def test_instance_proof_rejects_old_build_and_divergent_token(tmp_path, monkeypa
     (tmp_path / 'state').mkdir()
     (tmp_path / 'state/instance.json').write_text(json.dumps(dict(port=8123)))
     (tmp_path / 'BUILD-INFO.json').write_text(json.dumps(dict(source_commit='current-build')))
+    (tmp_path / 'versions/0.2.0').mkdir(parents=True)
+    (tmp_path / 'versions/0.2.0/version.json').write_text('{}')
     identity = desktop.installation_id(tmp_path)
     class Reply:
         build = 'current-build'

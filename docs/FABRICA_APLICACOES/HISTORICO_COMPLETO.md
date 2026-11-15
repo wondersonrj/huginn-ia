@@ -67,3 +67,9 @@ Consolidação #23: #22 integrado por squash em main (`7cbf8e2`). Reaplicados
 apenas os commits do instalador no PR #24, sem conflitos e sem duplicação do
 cofre. Base de revisão/CI passa a main. Revalidação e artifact consolidado
 registrados no PR #24; sem merge, release ou publicação em produção.
+
+#25: diagnóstico contextual por tabela, sem JOIN obrigatório ALL_TABLES, prova
+SELECT sem linhas, descoberta limitada de owners/sinônimos sem escolha automática.
+Updater preparado para commit assinado e identidade da versão ativa; ativação
+bloqueada por infraestrutura/aprovação, sem release. Transição por instalador
+preserva dados; CI verifica desktop/DPAPI, rede e rollback. Ver MANUAL_MESTRE.

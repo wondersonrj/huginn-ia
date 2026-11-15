@@ -68,7 +68,7 @@ def run(package, python=None, browser_path=None):
                     page.get_by_label('Código do cadastro', exact=True).fill('99999')
                     page.get_by_role('button', name='Buscar cadastros').click()
                     expect(page.get_by_text('Nenhum cadastro encontrado para os filtros informados.', exact=True)).to_be_visible()
-                    page.get_by_role('button', name='Conferir estrutura de consulta').click()
+                    page.get_by_role('button', name='Diagnosticar estrutura').click()
                     expect(page.get_by_text('Estrutura simulada. Nenhuma coluna foi confirmada em Oracle real.', exact=True)).to_be_visible()
                     page.get_by_label('Cadastro', exact=True).select_option('produtos')
                     page.route('**/api/winthor/produtos', lambda route: route.fulfill(status=502, json=dict(detail='Consulta indisponível simulada')))
