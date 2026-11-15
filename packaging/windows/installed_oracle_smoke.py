@@ -19,6 +19,7 @@ def exercise(page, root, version):
     page.get_by_role('button', name='Testar Instalador sintético', exact=True).click()
     expect(page.get_by_text('Último teste pontual confirmado:', exact=False)).to_be_visible()
     page.get_by_role('button', name='Selecionar Instalador sintético', exact=True).click()
+    expect(page.get_by_text('Consultas direcionadas a: Instalador sintético — TESTE', exact=True)).to_be_visible()
     page.get_by_role('button', name='Verificar conexão WinThor', exact=True).click()
     expect(page.get_by_text('ORACLE — somente leitura', exact=True)).to_be_visible()
     page.get_by_role('button', name='Conferir estrutura de consulta', exact=True).click()
@@ -43,21 +44,21 @@ def exercise(page, root, version):
         result = post('/api/connections/save', dict(fields, **ref(profile), password='synthetic-installer-only') | overrides)
         assert result['status'] == 200
         profile = result['body']['profile']
-        if action == 'test': result = post('/api/connections/test', ref(profile))
+        if action == 'test': result = post('/api/connections/test', ref(profile) | dict(confirm_environment='TESTE'))
         else:
-            assert post('/api/connections/select', ref(profile))['status'] == 200
+            assert post('/api/connections/select', ref(profile) | dict(confirm_environment='TESTE'))['status'] == 200
             result = post('/api/winthor/' + action, context(profile) | (dict(codigo=101) if action == 'produtos' else {}))
         assert result['status'] == status and message in result['body']['detail'], (action, result)
         assert 'invalid-synthetic' not in json.dumps(result)
     # Changing destination must reject an old context, even when mode was inherited as demo.
     old = context(profile)
     new = post('/api/connections/save', fields | dict(name='Outro destino', password='synthetic-installer-only'))['body']['profile']
-    assert post('/api/connections/select', ref(new))['status'] == 200
+    assert post('/api/connections/select', ref(new) | dict(confirm_environment='TESTE'))['status'] == 200
     assert post('/api/winthor/produtos', old | dict(codigo=101))['status'] == 409
     assert post('/api/connections/remove-password', ref(new))['status'] == 200
     new = next(p for p in listing() if p['id'] == new['id'])
     assert not new['password_saved']
-    assert post('/api/connections/select', ref(new))['status'] != 200
+    assert post('/api/connections/select', ref(new) | dict(confirm_environment='TESTE'))['status'] != 200
     assert post('/api/winthor/health', {})['status'] == 409  # never falls back to demo
     # Restore original connection for the next clean startup/retest.
     assert post('/api/connections/save', fields | ref(profile) | dict(password='synthetic-installer-only'))['status'] == 200
