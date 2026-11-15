@@ -118,7 +118,7 @@ begin
     Result := 'Ja existe uma instalacao deste usuario. Use a pasta mostrada no assistente; mudar de pasta separaria o cofre DPAPI. Nenhuma instalacao foi removida.';
   if Status = 'incompatible_installation' then
     Result := 'Instalacao de outra familia/runtime/canal. A migracao foi recusada e os dados foram preservados. Consulte o suporte; nao e preciso reiniciar o Windows.';
-  if (Status = 'identity_unconfirmed') or (Status = 'shutdown_refused') or (Status = 'shutdown_pending') then
+  if (Status = 'identity_unconfirmed') or (Status = 'shutdown_refused') or (Pos('shutdown_pending', Status) = 1) then
     Result := 'A instancia ativa nao confirmou identidade/encerramento seguro. Use Encerrar HUGINN na propria interface e repita. Nenhum processo ou servico de terceiros sera finalizado.';
   Result := Result + ' Codigo: ' + Status;
 end;

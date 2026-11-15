@@ -224,6 +224,37 @@ def lock_available(root):
             return False
 
 
+def listening(port):
+    if os.name != 'nt':
+        try:
+            connection = socket.create_connection(('127.0.0.1', port), timeout=2)
+        except ConnectionRefusedError:
+            return False
+        connection.close(); return True
+    import ctypes
+    from ctypes import wintypes
+    class Row(ctypes.Structure):
+        _fields_ = [(name, wintypes.DWORD) for name in ('state', 'local_addr', 'local_port', 'remote_addr', 'remote_port', 'pid')]
+    library = ctypes.WinDLL('iphlpapi', use_last_error=True)
+    function = library.GetExtendedTcpTable
+    function.argtypes = [ctypes.c_void_p, ctypes.POINTER(wintypes.DWORD), wintypes.BOOL, wintypes.ULONG, ctypes.c_int, wintypes.ULONG]
+    function.restype = wintypes.DWORD
+    for _ in range(3):
+        size = wintypes.DWORD()
+        function(None, ctypes.byref(size), False, 2, 5, 0)
+        if not 4 <= size.value <= 8 * 1024 * 1024: raise MigrationError('tcp_status_unavailable')
+        buffer = ctypes.create_string_buffer(size.value)
+        if function(buffer, ctypes.byref(size), False, 2, 5, 0) != 0: continue
+        count = wintypes.DWORD.from_buffer(buffer).value
+        if 4 + count * ctypes.sizeof(Row) > size.value: raise MigrationError('tcp_status_unavailable')
+        for index in range(count):
+            row = Row.from_buffer(buffer, 4 + index * ctypes.sizeof(Row))
+            if row.state == 2 and row.local_addr in {0, 0x0100007f} and socket.ntohs(row.local_port & 0xffff) == port:
+                return True
+        return False
+    raise MigrationError('tcp_status_unavailable')
+
+
 def native_wrappers_exited(root):
     if os.name != 'nt': return True
     import ctypes
@@ -258,7 +289,9 @@ def native_wrappers_exited(root):
                         if not kernel.QueryFullProcessImageNameW(handle, 0, buffer, ctypes.byref(size)): return False
                         if os.path.normcase(str(Path(buffer.value).resolve())) == expected:
                             # Read-only observation, never TerminateProcess. Path + SID, no PID from disk.
-                            if process_sid(process.pid) != windows_identity() or kernel.WaitForSingleObject(handle, 0) != 0:
+                            if kernel.WaitForSingleObject(handle, 0) != 0:
+                                # Unknown SID is also a refusal; never interact with another user.
+                                process_sid(process.pid) == windows_identity()
                                 return False
                     finally:
                         kernel.CloseHandle(handle)
@@ -274,12 +307,7 @@ def stop_owned(root):
         if not descriptor.exists(): return
         port = read_json(descriptor, 2048)['port']
         if type(port) is not int or not 1024 <= port <= 65535: raise MigrationError('identity_unconfirmed')
-        try:
-            connection = socket.create_connection(('127.0.0.1', port), timeout=.3)
-        except ConnectionRefusedError:
-            return
-        else:
-            connection.close()
+        if not listening(port): return
         # A backend may outlive its supervisor. Still require proof before stopping it.
     # No arbitrary PID handling. A random challenge authenticates this exact installation.
     cfg = read_json(root / 'bootstrap.json')
@@ -316,23 +344,15 @@ def stop_owned(root):
         with opener.open(request, timeout=3) as response:
             if response.status != 200: raise MigrationError('shutdown_refused')
     atomic(root / 'state/stop', b'')  # graceful child watch, only after HMAC + SID-authenticated API
+    stage = 'lock'
     for _ in range(150):
         if lock_available(root):
-            try:
-                # A released supervisor lock alone does not prove its child exited.
-                try:
-                    connection = socket.create_connection(('127.0.0.1', port), timeout=.3)
-                except ConnectionRefusedError:
-                    connection = None
-                else:
-                    connection.close()
-                    time.sleep(.2)
-                    continue
+            stage = 'listener'
+            if not listening(port):
+                stage = 'wrapper'
                 if native_wrappers_exited(root): return
-            except OSError:
-                pass
         time.sleep(.2)
-    raise MigrationError('shutdown_pending')
+    raise MigrationError('shutdown_pending_' + stage)
 
 
 def target(root, key):
