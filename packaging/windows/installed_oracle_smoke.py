@@ -50,6 +50,16 @@ def exercise(page, root, version):
             result = post('/api/winthor/' + action, context(profile) | (dict(codigo=101) if action == 'produtos' else {}))
         assert result['status'] == status and message in json.dumps(result['body'], ensure_ascii=False), (action, result)
         assert 'invalid-synthetic' not in json.dumps(result)
+        if action == 'diagnostico':
+            page.reload()
+            expect(page.get_by_role('button', name='Editar Instalador sintético', exact=True)).to_be_visible()
+            page.get_by_role('button', name='Verificar conexão WinThor', exact=True).click()
+            expect(page.get_by_text('ORACLE — somente leitura', exact=True)).to_be_visible()
+            page.get_by_role('button', name='Diagnosticar estrutura', exact=True).click()
+            expect(page.get_by_text('Diagnóstico Oracle parcial: confira a causa de cada tabela abaixo.', exact=True)).to_be_visible()
+            expect(page.get_by_text('Owner configurado: WRONG', exact=True)).to_be_visible()
+            expect(page.get_by_text('Owners visíveis (não selecionados): WINT.', exact=False)).to_have_count(2)
+            expect(page.get_by_text('Estrutura simulada. Nenhuma coluna foi confirmada em Oracle real.', exact=True)).to_have_count(0)
     # Changing destination must reject an old context, even when mode was inherited as demo.
     old = context(profile)
     new = post('/api/connections/save', fields | dict(name='Outro destino', password='synthetic-installer-only'))['body']['profile']
