@@ -301,12 +301,12 @@ def target(root, key):
     raise MigrationError('unsafe_backup')
 
 
-def clear_backup(root):
+def check_backup(root):
     backup = safe(root / BACKUP)
     if not backup.exists(): return
     if not (backup / 'journal.json').exists():
         if any(backup.iterdir()): raise MigrationError('unrecognized_backup')
-        backup.rmdir(); return
+        return
     journal(root)
     for path in backup.iterdir():
         safe(path)
@@ -316,7 +316,12 @@ def clear_backup(root):
             safe(blob)
             if not blob.is_file() or not re.fullmatch('[a-f0-9]{64}', blob.name):
                 raise MigrationError('unrecognized_backup')
-    shutil.rmtree(backup)
+
+
+def clear_backup(root):
+    check_backup(root)
+    backup = safe(root / BACKUP)
+    if backup.exists(): shutil.rmtree(backup)
 
 
 def prepare(root, inventory):

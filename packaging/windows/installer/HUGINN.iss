@@ -71,8 +71,10 @@ const
   AppRegistry = 'Software\Microsoft\Windows\CurrentVersion\Uninstall\{1F07B592-9CB4-4937-B35B-4A197E9AB867}_is1';
 var
   PreserveData, Staged, Prepared, Successful: Boolean;
-  MigrationLock: THandle;
+  MigrationLock, MaintenanceMutex: THandle;
 
+function MaintenanceCreateMutex(Security, InitialOwner: LongWord; Name: String): THandle;
+  external 'CreateMutexW@kernel32.dll stdcall';
 function MaintenanceCreateFile(Name: String; Access, Sharing, Security, Disposition, Attributes: LongWord; Template: THandle): THandle;
   external 'CreateFileW@kernel32.dll stdcall';
 function MaintenanceLock(Handle: THandle; OffsetLow, OffsetHigh, CountLow, CountHigh: LongWord): Boolean;
@@ -127,6 +129,9 @@ begin
     MaintenanceClose(MigrationLock);
     MigrationLock := 0;
   end;
+  if MaintenanceMutex <> 0 then begin
+    MaintenanceClose(MaintenanceMutex); MaintenanceMutex := 0;
+  end;
 end;
 
 function NextButtonClick(CurPageID: Integer): Boolean;
@@ -154,11 +159,13 @@ begin
   Result := ''; NeedsRestart := False;
   if not RunMaintenance('inspect') then begin Result := MigrationMessage(); Exit; end;
   if not RunMaintenance('stop-owned') then begin Result := MigrationMessage(); Exit; end;
+  MaintenanceMutex := MaintenanceCreateMutex(0, 0, 'Local\HUGINN-IA-Installed');
+  if MaintenanceMutex = 0 then begin Result := 'Nao foi possivel proteger a manutencao. Nenhum arquivo foi alterado.'; Exit; end;
   ForceDirectories(ExpandConstant('{app}\state'));
   MigrationLock := MaintenanceCreateFile(ExpandConstant('{app}\state\supervisor.lock'), $C0000000, 3, 0, 4, $80, 0);
-  if MigrationLock = $FFFFFFFF then begin MigrationLock := 0; Result := 'Pasta em uso/sem permissao. Nenhum dado foi removido.'; Exit; end;
+  if MigrationLock = $FFFFFFFF then begin MigrationLock := 0; ReleaseMigrationLock(); Result := 'Pasta em uso/sem permissao. Nenhum dado foi removido.'; Exit; end;
   if not MaintenanceLock(MigrationLock, 0, 0, 1, 0) then begin
-    MaintenanceClose(MigrationLock); MigrationLock := 0;
+    MaintenanceClose(MigrationLock); MigrationLock := 0; ReleaseMigrationLock();
     Result := 'HUGINN ainda em uso. Aguarde seu encerramento e repita; nenhum outro processo sera finalizado.'; Exit;
   end;
   if not RunMaintenance('prepare') then begin Result := MigrationMessage(); ReleaseMigrationLock(); Exit; end;
@@ -188,6 +195,10 @@ end;
 
 function InitializeUninstall(): Boolean;
 begin
+  if CheckForMutexes('Local\HUGINN-IA-Setup') then begin
+    if not UninstallSilent then MsgBox('Aguarde o Setup terminar antes de desinstalar. Nenhum dado sera removido.', mbInformation, MB_OK);
+    Result := False; Exit;
+  end;
   if CheckForMutexes('Local\HUGINN-IA-Installed') then begin
     if not UninstallSilent then MsgBox('Use Encerrar HUGINN na interface antes de desinstalar. Outros servicos nao serao encerrados.', mbInformation, MB_OK);
     Result := False;

@@ -201,3 +201,30 @@ def test_extra_user_file_in_prior_backup_blocks_rotation_without_data_loss(migra
     extra = root / m.BACKUP / 'customer.txt'; extra.write_text('never erase unknown files')
     with pytest.raises(m.MigrationError, match='unrecognized_backup'): m.prepare(root, inv)
     assert extra.read_text() == 'never erase unknown files'
+
+
+def test_explicit_data_removal_validates_unknown_backup_before_erasing_vault(migration, monkeypatch):
+    m, root, inv, install = migration
+    from app import connection_store
+    monkeypatch.setattr(connection_store, 'current_store', lambda: SimpleNamespace(root=m.vault(root)))
+    path = Path(__file__).resolve().parents[2] / 'packaging/windows/installer_state.py'
+    spec = importlib.util.spec_from_file_location('installer_removal_test', path)
+    state = importlib.util.module_from_spec(spec); spec.loader.exec_module(state)
+    folder = root / m.BACKUP; folder.mkdir(); (folder / 'customer.txt').write_text('unknown private data')
+    with patch.dict(sys.modules, {'installer_migration': m}), pytest.raises(m.MigrationError, match='unrecognized_backup'):
+        state.remove_data(root)
+    assert (m.vault(root) / 'local-token.bin').read_bytes() == b'ciphertext token'
+    assert (folder / 'customer.txt').read_text() == 'unknown private data'
+
+
+def test_explicit_removal_erases_only_recognized_private_state(migration, monkeypatch):
+    m, root, inv, install = migration
+    m.prepare(root, inv); install(); m.validated(root); m.commit(root)
+    from app import connection_store
+    monkeypatch.setattr(connection_store, 'current_store', lambda: SimpleNamespace(root=m.vault(root)))
+    path = Path(__file__).resolve().parents[2] / 'packaging/windows/installer_state.py'
+    spec = importlib.util.spec_from_file_location('installer_removal_ok_test', path)
+    state = importlib.util.module_from_spec(spec); spec.loader.exec_module(state)
+    with patch.dict(sys.modules, {'installer_migration': m}): state.remove_data(root)
+    assert not m.vault(root).exists() and not (root / m.BACKUP).exists() and not (root / 'state').exists()
+    assert (root / 'customer.txt').read_text() == 'never delete user data'

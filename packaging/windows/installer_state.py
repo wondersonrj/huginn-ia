@@ -57,15 +57,15 @@ def remove_data(root):
     if store is None:
         raise RuntimeError('Windows user vault required')
     safe_path(store.root)
-    from installer_migration import journal, BACKUP
+    from installer_migration import check_backup, clear_backup, BACKUP
     backup = root / BACKUP
     safe_path(backup)
     if backup.exists():
-        journal(root)  # validate every scope before deleting either vault or backup
+        check_backup(root)  # validate every scope before deleting either vault or backup
     if store.root.exists():
         shutil.rmtree(store.root)
     if backup.exists():
-        shutil.rmtree(backup)
+        clear_backup(root)
     # Keep/remove decision includes only this installation's updater preferences/state.
     state = root / 'state'
     safe_path(state)
