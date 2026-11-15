@@ -104,3 +104,23 @@ preservados. Testes Windows verificam DPAPI/ACL e reinício sem Oracle real.
 Registro issue → branch → PR e evidências finais constam na descrição do PR que
 referencia #21; [histórico de decisões](FABRICA_APLICACOES/HISTORICO_COMPLETO.md).
 Não houve merge, release, alteração de produção ou homologação em banco real.
+
+## Instalador e primeira execução — #23, dependências #20/#21
+
+[Guia final de instalação e suporte](INSTALACAO_WINDOWS.md). Implementação
+incremental sobre o PR #22 ainda aberto, sem duplicar nem integrar o cofre.
+A revisão deve respeitar a ordem #22 → PR instalador e retargetar para main
+somente após integração humana da dependência, com CI revalidada.
+
+O MVP acrescenta Inno Setup por usuário, launcher Win32 nativo, atalhos,
+desinstalação com manter/remover, token aleatório DPAPI automático, sessão
+HttpOnly vinculada ao SID Windows do cliente, porta gerenciada e reabertura
+por prova HMAC de instalação/versão. Não exige PowerShell/Python/Node/OCI ou
+reboot do operador, nem mata serviços alheios. Oracle permanece read-only.
+
+A #20 é atendida por artifacts rastreáveis de PR e push/main, distinguindo
+pré-merge de pós-merge. Não há Authenticode autorizado: o EXE é de homologação
+não assinado, sem release/tag/publicação. SHA256 não substitui assinatura.
+Windows CI exercita instalação/uso/reinstalação/upgrade/reabertura/conflitos e
+remoção. Homologação Oracle real continua pendente. IDs e artifacts do run
+final ficam na descrição do PR; não se presume execução por abrir issue.

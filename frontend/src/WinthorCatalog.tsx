@@ -6,7 +6,7 @@ type Health = { modo: 'simulado' | 'oracle'; conectado: boolean; disponivel: boo
 type Result = { modo: 'simulado' | 'oracle'; itens: { codigo: string; nome: string }[]; pagina: number; tamanho: number; tem_proxima: boolean; limite_atingido: boolean }
 type Schema = { modo: string; validado_no_oracle: boolean; tabelas: { tabela: string; validado: boolean; colunas: { nome: string; tipo: string }[] }[] }
 
-export function WinthorCatalog({ token, onTokenChange }: { token: string; onTokenChange: (value: string) => void }) {
+export function WinthorCatalog({ token, onTokenChange, automatic = false }: { token: string; onTokenChange: (value: string) => void; automatic?: boolean }) {
   const [connection, setConnection] = useState<Connection | null>(null)
   const [health, setHealth] = useState<Health | null>(null)
   const [kind, setKind] = useState<Kind>('produtos')
@@ -25,7 +25,7 @@ export function WinthorCatalog({ token, onTokenChange }: { token: string; onToke
     active.current?.abort()
     setBusy(false); setResult(null); setSchema(null); setError('')
   }
-  useEffect(() => { reset(); setHealth(null); setConnection(null) }, [token])
+  useEffect(() => { reset(); setHealth(null); setConnection(null) }, [token, automatic])
   useEffect(() => () => { active.current?.abort() }, [])
 
   async function request(action: 'health' | 'diagnostico' | Kind, page = 1) {
@@ -38,7 +38,7 @@ export function WinthorCatalog({ token, onTokenChange }: { token: string; onToke
     if (action === 'health') { setHealth(null); setSchema(null) }
     try {
       const response = await fetch(`/api/winthor/${action}`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        method: 'POST', headers: { 'Content-Type': 'application/json', ...(automatic ? {} : { Authorization: `Bearer ${token}` }) },
         body: JSON.stringify({ ...(connection ? { connection_id: connection.id, connection_revision: connection.revision } : {}),
           ...(action === 'health' || action === 'diagnostico' ? {} : { codigo: code === '' ? null : Number(code), nome: name.trim(), pagina: page, tamanho: size }),
         }), signal: controller.signal, cache: 'no-store',
@@ -65,13 +65,14 @@ export function WinthorCatalog({ token, onTokenChange }: { token: string; onToke
     <div className="panel-head"><div><h2 id="winthor-title">Consultas WinThor</h2>
       <p>Produtos e fornecedores em somente leitura. Configuração Oracle permanece no servidor local.</p></div></div>
     <form className="catalog-auth" onSubmit={(e: FormEvent) => { e.preventDefault(); void request('health') }}>
-      <label>Token de acesso local<input type="password" required minLength={32} maxLength={512} autoComplete="off"
-        value={token} onChange={e => onTokenChange(e.target.value)} /></label>
+      {!automatic && <label>Token de acesso local<input type="password" required minLength={32} maxLength={512} autoComplete="off"
+        value={token} onChange={e => onTokenChange(e.target.value)} /></label>}
       <button className="oracle-test" disabled={busy} type="submit">Verificar conexão WinThor</button>
-      <button className="oracle-test" type="button" onClick={() => { onTokenChange(''); reset(); setHealth(null) }}>Encerrar acesso</button>
+      {!automatic && <button className="oracle-test" type="button" onClick={() => { onTokenChange(''); reset(); setHealth(null) }}>Encerrar acesso</button>}
     </form>
-    <p className="notice">O token fica apenas na memória desta página. Ao encerrar o acesso ou recarregar, os resultados e o token são apagados. Não informe a senha Oracle aqui.</p>
-    <ConnectionManager token={token} onChange={selected => { reset(); setHealth(null); setConnection(selected) }}/>
+    {!automatic && <p className="notice">O token fica apenas na memória desta página. Ao encerrar o acesso ou recarregar, os resultados e o token são apagados. Não informe a senha Oracle aqui.</p>}
+    <ConnectionManager automatic={automatic} token={token} onChange={selected => { reset(); setHealth(null); setConnection(selected) }}/>
+    {automatic && <p className="success">Acesso Windows protegido confirmado. Primeiro uso: cadastre, teste e selecione uma conexão abaixo; não é necessário digitar token.</p>}
     {connection && <p className={connection.environment === 'PRODUCAO' ? 'production-destination' : 'notice'}>Consultas direcionadas a: {connection.name} — {connection.environment === 'PRODUCAO' ? 'PRODUÇÃO' : 'TESTE'}</p>}
     {health && <div className="connection-state" role="status">
       <strong>{health.modo === 'simulado' ? 'SIMULAÇÃO — dados fictícios, sem Oracle' : 'ORACLE — somente leitura'}</strong>

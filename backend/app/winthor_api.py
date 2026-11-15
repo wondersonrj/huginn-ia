@@ -12,6 +12,7 @@ from starlette.concurrency import run_in_threadpool
 from app import winthor
 from app.connection_store import Conflict, SelectionRequired
 from app.windows_secrets import VaultError
+from app.local_session import app_port, session_authorized
 from app.oracle_connector import connection_diagnostic
 
 router = APIRouter(prefix='/api/winthor')
@@ -21,8 +22,8 @@ if not audit.handlers:
     handler = logging.StreamHandler()
     handler.setFormatter(logging.Formatter('%(message)s'))
     audit.addHandler(handler)
-ORIGINS = {f'http://{host}:{port}' for host in ('localhost', '127.0.0.1') for port in (8000, 5173)}
-HOSTS = {f'{host}:{port}' for host in ('localhost', '127.0.0.1') for port in (8000, 5173)}
+ORIGINS = {f'http://{host}:{port}' for host in ('localhost', '127.0.0.1') for port in (app_port(), 5173)}
+HOSTS = {f'{host}:{port}' for host in ('localhost', '127.0.0.1') for port in (app_port(), 5173)}
 
 
 class ContextRequest(BaseModel):
@@ -43,6 +44,8 @@ def authorize(request):
             or request.headers.get('host') not in HOSTS
             or (request.headers.get('origin') is not None and request.headers['origin'] not in ORIGINS)):
         raise HTTPException(403, 'Acesso permitido somente pela interface local autorizada')
+    if session_authorized(request):
+        return
     expected = os.environ.get('HUGINN_API_TOKEN', '')
     if len(expected) < 32:
         raise HTTPException(503, 'Configure um token de acesso local com pelo menos 32 caracteres')

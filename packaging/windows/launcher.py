@@ -15,6 +15,7 @@ import urllib.request
 
 ROOT = Path(__file__).resolve().parent
 sys.path.insert(0, str(ROOT))
+from desktop import access_token, app_mutex, installation_id, show_error, verify_instance, recovery_confirmed
 from updater import Updater, UpdateError, atomic_json, discover, exclusive_lock
 
 
@@ -44,7 +45,8 @@ def approve_release(data):
 
 
 class Supervisor:
-    def __init__(self, root, config, python=None):
+    def __init__(self, root, config, python=None, desktop=False):
+        self.desktop = desktop
         self.root = Path(root)
         self.config = config
         self.updater = Updater(root, config)
@@ -70,14 +72,25 @@ class Supervisor:
         env = os.environ.copy()
         env['HUGINN_STATE_DIR'] = str(self.state)
         env['HUGINN_UPDATE_TOKEN'] = self.token
+        if self.desktop:
+            env['HUGINN_API_TOKEN'] = self.access
+            env['HUGINN_DESKTOP_SESSION'] = '1'
+            env['HUGINN_INSTALLATION_ID'] = installation_id(self.root)
+            env['HUGINN_RUNNING_VERSION'] = version
         if self.socket is None:
             self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             if sys.platform == 'win32':
                 self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_EXCLUSIVEADDRUSE, 1)
             else:
                 self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-            self.socket.bind(('127.0.0.1', 8000))
+            try:
+                self.socket.bind(('127.0.0.1', 8000))
+            except OSError:
+                if not self.desktop:
+                    raise
+                self.socket.bind(('127.0.0.1', 0))
             self.socket.listen(128)
+        self.url = f'http://127.0.0.1:{self.socket.getsockname()[1]}'
         command = [self.python, '-I', str(self.root / 'versions' / version / 'server.py'),
                    '--no-browser', '--stop-file', str(stop_file)]
         if sys.platform == 'win32':
@@ -93,8 +106,10 @@ class Supervisor:
             if self.process.poll() is not None:
                 raise UpdateError('Servidor encerrou durante a inicialização.')
             try:
-                with urllib.request.urlopen('http://127.0.0.1:8000/api/version', timeout=.5) as response:
+                with urllib.request.urlopen(self.url + '/api/version', timeout=.5) as response:
                     if json.load(response)['version'] == version:
+                        if self.desktop:
+                            atomic_json(self.state / 'instance.json', {'port': self.socket.getsockname()[1], 'version': version})
                         return
             except (OSError, ValueError, KeyError):
                 pass
@@ -126,7 +141,7 @@ class Supervisor:
             try:
                 self.start(self.updater.current())
                 if not no_browser:
-                    open_browser('http://127.0.0.1:8000')
+                    open_browser(self.url)
                 if self.config.get('updates_enabled') and self.config['channel'] == 'teste':
                     try:
                         self.check()
@@ -148,7 +163,7 @@ class Supervisor:
                                 self.available = None
                                 self.status('Atualização instalada e versão confirmada.')
                                 if not no_browser:
-                                    open_browser('http://127.0.0.1:8000')
+                                    open_browser(self.url)
                         except UpdateError as error:
                             self.status(str(error))
                         except Exception:
@@ -166,11 +181,47 @@ def main():
     signal.signal(signal.SIGTERM, interrupted)
     try:
         config = json.loads((ROOT / 'bootstrap.json').read_text())
-        Supervisor(ROOT, config).run('--no-browser' in sys.argv)
+        supervisor = Supervisor(ROOT, config, desktop='--desktop' in sys.argv)
+        if supervisor.desktop:
+            supervisor.updater.recover()
+            version = supervisor.updater.current() if (supervisor.state / 'current.json').exists() else config['version']
+            reset_marker = supervisor.state / 'reset-access'
+            if reset_marker.exists():
+                with exclusive_lock(supervisor.state / 'supervisor.lock'):
+                    supervisor.access = access_token(ROOT, version, reset=True)
+                    reset_marker.unlink()
+            else:
+                try:
+                    supervisor.access = access_token(ROOT, version)
+                except Exception:
+                    if '--no-browser' in sys.argv or not recovery_confirmed():
+                        raise
+                    with exclusive_lock(supervisor.state / 'supervisor.lock'):
+                        supervisor.access = access_token(ROOT, version, reset=True)
+            # The lock serializes simultaneous starts; the subsequent attempt verifies identity.
+            for _ in range(40):
+                try:
+                    with app_mutex():
+                        supervisor.run('--no-browser' in sys.argv)
+                    return 0
+                except UpdateError:
+                    if supervisor.process is not None:
+                        raise
+                    existing = verify_instance(ROOT, version, supervisor.access)
+                    if existing:
+                        if '--no-browser' not in sys.argv:
+                            open_browser(existing)
+                        return 0
+                    time.sleep(.25)
+            raise UpdateError('Existing instance identity could not be confirmed')
+        else:
+            supervisor.run('--no-browser' in sys.argv)
         return 0
     except KeyboardInterrupt:
         return 0
     except Exception:
+        if '--desktop' in sys.argv and '--no-browser' not in sys.argv:
+            show_error()
         print('Falha ao iniciar/recuperar HUGINN. Confira porta 8000, pasta extraída e documentação de recuperação.')
         return 1
 

@@ -22,7 +22,7 @@ def copy_backend(source, destination):
     # Defense in depth: local vaults are outside the app, but accidental copies
     # of these files must not turn into distributable/support artifacts.
     shutil.copytree(source, destination, ignore=shutil.ignore_patterns(
-        '__pycache__', '*.pyc', '*.dpapi', 'profiles.json', '.env', '*.tmp'))
+        '__pycache__', '*.pyc', '*.dpapi', 'profiles.json', 'local-token.bin', '.env', '*.tmp'))
 
 
 def build(output, version=None, channel=None, enable_updates=False, public_key_file=None):
@@ -76,14 +76,14 @@ def build(output, version=None, channel=None, enable_updates=False, public_key_f
         shutil.copy2(REPO / 'packaging/windows/server.py', payload / 'server.py')
         (payload / 'version.json').write_text(json.dumps(config, indent=2), encoding='utf-8')
         (root / 'bootstrap.json').write_text(json.dumps(config, indent=2), encoding='utf-8')
-        for name in ['launcher.py', 'updater.py', 'INICIAR_HUGINN.bat', 'LEIA-ME.txt']:
+        for name in ['launcher.py', 'desktop.py', 'updater.py', 'INICIAR_HUGINN.bat', 'LEIA-ME.txt']:
             source = REPO / 'packaging/windows' / name
             if name.endswith(('.bat', '.txt')):
                 (root / name).write_bytes(source.read_text().replace('\r\n', '\n').replace('\n', '\r\n').encode('utf-8'))
             else:
                 shutil.copy2(source, root / name)
         (root / 'docs').mkdir()
-        for doc in ['CONEXOES_SALVAS.md', 'WINTHOR_MVP.md', 'ATUALIZACOES_WINDOWS.md', 'CONEXAO_ORACLE.md', 'DISTRIBUICAO_RELEASES.md', 'PREPARAR_TESTES_PELO_GITHUB.md']:
+        for doc in ['INSTALACAO_WINDOWS.md', 'CONEXOES_SALVAS.md', 'WINTHOR_MVP.md', 'ATUALIZACOES_WINDOWS.md', 'CONEXAO_ORACLE.md', 'DISTRIBUICAO_RELEASES.md', 'PREPARAR_TESTES_PELO_GITHUB.md']:
             shutil.copy2(REPO / 'docs' / doc, root / 'docs' / doc)
         (root / 'exemplos').mkdir()
         # Extract only the existing synthetic fixture; never include local config.

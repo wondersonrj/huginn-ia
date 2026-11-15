@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 
-export function OracleConnection({ token }: { token: string }) {
+export function OracleConnection({ token, automatic = false }: { token: string; automatic?: boolean }) {
   const [host, setHost] = useState('')
   const [port, setPort] = useState('1521')
   const [service, setService] = useState('')
@@ -27,7 +27,7 @@ export function OracleConnection({ token }: { token: string }) {
     try {
       const response = await fetch(diagnostic ? '/api/oracle/diagnostico' : '/api/oracle/testar', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        headers: { 'Content-Type': 'application/json', ...(automatic ? {} : { Authorization: `Bearer ${token}` }) },
         body: JSON.stringify({ host: host.trim(), port: Number(port), service: service.trim(), user: user.trim(), password }),
         signal: controller.signal,
       })
@@ -54,7 +54,7 @@ export function OracleConnection({ token }: { token: string }) {
 
   return <section className="panel" id="oracle">
     <div className="panel-head"><div><h2>Conexão Oracle direta</h2>
-      <p>Diagnóstico avulso com conta de leitura autorizada pelo DBA. Requer o token local da seção Consultas WinThor.</p></div></div>
+      <p>{automatic ? 'Diagnóstico avulso opcional; o acesso Windows já foi confirmado.' : 'Diagnóstico avulso com conta de leitura autorizada pelo DBA. Requer o token local da seção Consultas WinThor.'}</p></div></div>
     <p className="notice">O teste de conexão consulta apenas DUAL; o diagnóstico consulta somente metadados das tabelas autorizadas. Nenhum registro comercial é lido ou alterado. Os dados não são salvos e a senha é limpa após cada tentativa.</p>
     <form onSubmit={(e: FormEvent<HTMLFormElement>) => { e.preventDefault(); const diagnostic = (e.nativeEvent as SubmitEvent).submitter?.getAttribute("value") === "diagnostic"; void testConnection(diagnostic) }} onChange={() => { setResult(null); setSchema(null) }}>
       <fieldset disabled={busy} className="oracle-fields">
