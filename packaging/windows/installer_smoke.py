@@ -29,7 +29,19 @@ def run(installer, upgrade=None):
         env['HUGINN_WINTHOR_MODE'] = 'demo'
         env['HUGINN_API_TOKEN'] = 'short'  # inherited invalid token must be overridden by DPAPI
         def install(path):
-            return subprocess.run([str(path), '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART', '/SP-', '/DIR=' + str(root)], env=env, capture_output=True, timeout=180)
+            trace = Path(temp) / 'setup-test.log'
+            result = None
+            try:
+                result = subprocess.run([str(path), '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART', '/SP-', '/LOG=' + str(trace), '/DIR=' + str(root)], env=env, timeout=180)
+                return result
+            finally:
+                if result is None or result.returncode != 0:
+                    if trace.exists():
+                        for line in trace.read_text(encoding='utf-8-sig', errors='replace').splitlines():
+                            if any(word in line for word in ('Exception', 'PrepareToInstall', 'Exit code', 'Error:', 'Last Error')):
+                                print('Synthetic Setup diagnostic: ' + line, flush=True)
+                    backup = root / '.installer-backup/journal.json'
+                    if backup.exists(): print('Synthetic Setup phase: ' + json.loads(backup.read_text())['phase'], flush=True)
         assert install(installer).returncode == 0
         assert (root / 'HUGINN-IA.exe').is_file() and (root / 'unins000.exe').is_file()
         assert (root / 'docs/INSTALACAO_WINDOWS.md').is_file()
@@ -62,8 +74,11 @@ def run(installer, upgrade=None):
             assert json.loads((root / 'state/instance.json').read_text())['port'] == info['port']
             multiple = [subprocess.Popen([str(root / 'HUGINN-IA.exe'), '--no-browser'], env=env) for _ in range(2)]
             assert all(p.wait(timeout=30) == 0 for p in multiple)
-            # An active application blocks an installer, without force-closing it/reboot.
-            assert install(installer).returncode != 0 and primary.poll() is None
+            # New Setup authenticates/stops only its own active application, then replaces it in place.
+            assert install(installer).returncode == 0
+            assert primary.wait(timeout=30) == 0
+            (root / 'state/instance.json').unlink(missing_ok=True)
+            primary, info = start(); url = f'http://127.0.0.1:{info["port"]}'
             with sync_playwright() as playwright:
                 browser = playwright.chromium.launch()
                 page = browser.new_page()

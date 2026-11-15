@@ -48,12 +48,42 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw 'Update rollback failed' }
       - name: Build synthetic upgrade fixture (never distributed)
         run: |
-          python packaging/windows/build.py --version 0.3.1 --output upgrade-fixture
+          python packaging/windows/build.py --version 0.3.2 --output upgrade-fixture
           if ($LASTEXITCODE -ne 0) { throw 'Upgrade fixture failed' }
           python packaging/windows/build_installer.py --package upgrade-fixture/HUGINN-IA-Windows-x64.zip --output upgrade-installer
           if ($LASTEXITCODE -ne 0) { throw 'Upgrade fixture installer failed' }
       - name: Install and use as a Windows operator without commands or token typing
         run: python packaging/windows/installer_smoke.py --installer installer-output/HUGINN-IA-Setup.exe --upgrade upgrade-installer/HUGINN-IA-Setup.exe
+      - uses: actions/checkout@v4
+        with:
+          ref: 5c46882abeceae966fb1ae1560b483f67ab3ce3b
+          path: legacy-020
+          persist-credentials: false
+      - uses: actions/checkout@v4
+        with:
+          ref: 602341d2a6c920404e4c0dcae5f179f50f6c1362
+          path: legacy-030
+          persist-credentials: false
+      - name: Build real historical 0.2.0 and 0.3.0 Setup fixtures (never distributed)
+        run: |
+          foreach ($source in @('legacy-020', 'legacy-030')) {
+            Push-Location $source
+            npm ci --prefix frontend
+            if ($LASTEXITCODE -ne 0) { throw 'Historical dependencies failed' }
+            npm run build --prefix frontend
+            if ($LASTEXITCODE -ne 0) { throw 'Historical frontend failed' }
+            python packaging/windows/build.py --output legacy-package
+            if ($LASTEXITCODE -ne 0) { throw 'Historical package failed' }
+            python packaging/windows/build_installer.py --package legacy-package/HUGINN-IA-Windows-x64.zip --output legacy-installer
+            if ($LASTEXITCODE -ne 0) { throw 'Historical installer failed' }
+            Pop-Location
+          }
+          python packaging/windows/make_failure_fixture.py upgrade-fixture/HUGINN-IA-Windows-x64.zip broken-package/failed.zip
+          if ($LASTEXITCODE -ne 0) { throw 'Failure fixture failed' }
+          python packaging/windows/build_installer.py --package broken-package/failed.zip --output broken-installer
+          if ($LASTEXITCODE -ne 0) { throw 'Failure installer failed' }
+      - name: Historical installed and portable upgrade, rollback and interrupted recovery
+        run: python packaging/windows/installer_upgrade_smoke.py --installer installer-output/HUGINN-IA-Setup.exe --broken broken-installer/HUGINN-IA-Setup.exe --old-020 legacy-020/legacy-installer/HUGINN-IA-Setup.exe --old-030 legacy-030/legacy-installer/HUGINN-IA-Setup.exe --portable legacy-020/legacy-package/HUGINN-IA-Windows-x64.zip
       - uses: actions/upload-artifact@v4
         with:
           name: HUGINN-IA-Setup-homologation-${{ github.sha }}

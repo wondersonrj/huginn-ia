@@ -73,3 +73,10 @@ SELECT sem linhas, descoberta limitada de owners/sinônimos sem escolha automát
 Updater preparado para commit assinado e identidade da versão ativa; ativação
 bloqueada por infraestrutura/aprovação, sem release. Transição por instalador
 preserva dados; CI verifica desktop/DPAPI, rede e rollback. Ver MANUAL_MESTRE.
+
+#27 / PR #28: manter AppId/caminho e usar upgrade Inno in-place, sem executar
+uninstaller antigo. Preflight do Setup novo, shutdown DPAPI/HMAC/SID, lock de SO,
+backup privado e rollback de bootstrap/configuração/registro/atalhos/cofre.
+Recuperação ao repetir Setup; preservar dados por padrão no uninstall e evitar
+limpeza recursiva de arquivos extras. CI EXEs 0.2.0/0.3.0 + portátil → 0.3.1;
+resultados/artifact no PR. Sem reboot, Oracle real, merge ou release.

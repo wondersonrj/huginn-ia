@@ -185,6 +185,12 @@ def main():
         raise KeyboardInterrupt
     signal.signal(signal.SIGTERM, interrupted)
     try:
+        if (ROOT / '.installer-backup/journal.json').exists():
+            from installer_migration import pending
+            if pending(ROOT):
+                if '--no-browser' not in sys.argv and sys.platform == 'win32':
+                    ctypes.windll.user32.MessageBoxW(None, 'Atualizacao em andamento ou interrompida. Aguarde o Setup ou execute-o novamente para recuperar. Conexoes e senhas serao preservadas; nao reinicie o Windows.', 'HUGINN IA - manutencao', 0x40)
+                return 1
         config = json.loads((ROOT / 'bootstrap.json').read_text())
         supervisor = Supervisor(ROOT, config, desktop='--desktop' in sys.argv)
         if supervisor.desktop:
