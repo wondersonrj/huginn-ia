@@ -78,10 +78,11 @@ def verify_instance(root, expected_version, token):
         with opener.open(url + '/api/local-instance?challenge=' + challenge, timeout=1) as response:
             value = json.loads(response.read(2049))
         identity = installation_id(root)
-        payload = f'{challenge}:{identity}:{expected_version}:{port}'
+        build = json.loads((Path(root) / 'BUILD-INFO.json').read_text())['source_commit']
+        payload = f'{challenge}:{identity}:{expected_version}:{port}:{build}'
         expected = hmac.new(token.encode(), payload.encode(), hashlib.sha256).hexdigest()
         if (value['installation'] == identity and value['version'] == expected_version
-                and value['port'] == port and hmac.compare_digest(value['proof'], expected)):
+                and value['port'] == port and value['build'] == build and hmac.compare_digest(value['proof'], expected)):
             return url
     except Exception:
         return None
@@ -122,7 +123,7 @@ def recovery_confirmed():
 
 def diagnostic(root, event):
     # Whitelist fixed event codes: never serialize exception text, URLs or arguments.
-    if event not in {'desktop_start_requested', 'desktop_start_failed', 'instance_reused', 'server_ready'}:
+    if event not in {'desktop_start_requested', 'desktop_start_failed', 'instance_reused', 'server_ready', 'identity_rejected'}:
         return
     from datetime import datetime, timezone
     try:

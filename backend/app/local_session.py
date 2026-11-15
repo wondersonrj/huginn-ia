@@ -166,9 +166,10 @@ async def identity(request: Request, challenge: str = ''):
         raise HTTPException(403, 'Identidade local indisponível')
     version = os.environ.get('HUGINN_RUNNING_VERSION', '')
     installation = os.environ.get('HUGINN_INSTALLATION_ID', '')
-    payload = f'{challenge}:{installation}:{version}:{app_port()}'
+    build = os.environ.get('HUGINN_RUNNING_BUILD', '')
+    payload = f'{challenge}:{installation}:{version}:{app_port()}:{build}'
     proof = hmac.new(os.environ['HUGINN_API_TOKEN'].encode(), payload.encode(), hashlib.sha256).hexdigest()
-    return JSONResponse(dict(installation=installation, version=version, port=app_port(), proof=proof), headers={'Cache-Control': 'no-store'})
+    return JSONResponse(dict(installation=installation, version=version, port=app_port(), build=build, proof=proof), headers={'Cache-Control': 'no-store'})
 
 
 @router.post('/api/local-stop')

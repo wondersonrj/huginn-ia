@@ -153,3 +153,9 @@ com rotação e ACL privada). Não redireciona stderr bruto do driver para supor
 Compartilhe somente esses arquivos após revisão; nunca o diretório state inteiro,
 cofre, request.json ou tokens. O fechamento de console não é necessário para
 coletar diagnóstico, e o instalador não registra corpos/credenciais.
+
+A estabilização adicional verifica no smoke Windows DUAL, diagnóstico e resultados
+de produtos/fornecedores na UI usando um driver sintético apenas na instalação
+descartável de CI. O instalador disponibilizado não contém esse driver. A prova de
+identidade inclui o commit do build e é obrigatória também na primeira abertura.
+Esta evidência não confirma conectividade nem permissões de um Oracle real.

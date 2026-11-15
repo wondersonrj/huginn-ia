@@ -25,6 +25,7 @@ def desktop(monkeypatch):
     monkeypatch.setenv('HUGINN_WINTHOR_MODE', 'demo')
     monkeypatch.setenv('HUGINN_INSTALLATION_ID', 'installer-fixture')
     monkeypatch.setenv('HUGINN_RUNNING_VERSION', '0.2.0')
+    monkeypatch.setenv('HUGINN_RUNNING_BUILD', 'test-build')
     session._sessions.clear()
     yield
     session._sessions.clear()
@@ -69,7 +70,7 @@ def test_tampered_cookie_and_expired_session_are_denied(desktop):
 def test_identity_proof_binds_challenge_installation_version_port(desktop):
     challenge = 'c' * 64
     data = client().get('/api/local-instance?challenge=' + challenge).json()
-    expected = hmac.new(b'a' * 64, f'{challenge}:installer-fixture:0.2.0:8000'.encode(), hashlib.sha256).hexdigest()
+    expected = hmac.new(b'a' * 64, f'{challenge}:installer-fixture:0.2.0:8000:test-build'.encode(), hashlib.sha256).hexdigest()
     assert data['proof'] == expected
     assert client().get('/api/local-instance?challenge=bad').status_code == 403
 

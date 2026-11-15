@@ -77,6 +77,7 @@ class Supervisor:
             env['HUGINN_DESKTOP_SESSION'] = '1'
             env['HUGINN_INSTALLATION_ID'] = installation_id(self.root)
             env['HUGINN_RUNNING_VERSION'] = version
+            env['HUGINN_RUNNING_BUILD'] = json.loads((self.root / 'BUILD-INFO.json').read_text())['source_commit']
         if self.socket is None:
             self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             if sys.platform == 'win32':
@@ -111,6 +112,9 @@ class Supervisor:
                         if self.desktop:
                             diagnostic(self.root, 'server_ready')
                             atomic_json(self.state / 'instance.json', {'port': self.socket.getsockname()[1], 'version': version})
+                            if verify_instance(self.root, version, self.access) != self.url:
+                                diagnostic(self.root, 'identity_rejected')
+                                raise UpdateError('Identidade/token/build do servidor nao confirmados.')
                         return
             except (OSError, ValueError, KeyError):
                 pass

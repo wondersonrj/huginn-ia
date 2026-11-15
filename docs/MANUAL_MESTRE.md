@@ -134,3 +134,26 @@ preservação de terceiro na porta 8000; o ciclo final e artifact rastreável fi
 registrados no PR. Aberturas concorrentes aguardam locks temporários sem recriar
 um token corrompido. O teste de desinstalação usa o modo síncrono do Inno para
 não reinstalar enquanto seu processo temporário ainda remove arquivos.
+
+### Estabilização #23 — complemento de 15/11/2026
+
+O primeiro smoke instalado parava no listener indisponível: gerar EXE e testar
+falha de rede não comprovava DUAL/metadados/consultas na UI. O smoke agora instala
+o artifact original, confirma a falha Oracle real sem driver substituído e só
+então adiciona um double de driver na **cópia descartável** instalada da versão de
+upgrade. Esse arquivo não entra no pacote nem existe flag de ativação no produto.
+A execução passa por DPAPI real, sessão Windows/SID real, UI, backend em modo
+Oracle (mesmo herdando `demo`), DUAL, metadados e binds CODPROD/PCPRODUT e
+CODFORNEC/PCFORNEC. O double recusa SQL inesperado e commit. Não é banco Oracle
+real: homologação no ambiente autorizado continua pendente, sem solicitar senhas.
+
+A matriz cobre senha inválida, listener indisponível, timeout de conexão/consulta,
+owner incorreto, ausência de SELECT, troca de conexão/contexto antigo, senha
+removida, reinício, upgrade/rollback e desinstalação. O teste herda propositalmente
+um token curto; o launcher deve substituí-lo pelo token DPAPI de 256 bits. A prova
+HMAC é verificada também na primeira abertura e passa a vincular o commit do build:
+backend com token divergente ou pacote antigo não pode ser aberto silenciosamente.
+Sem conexão selecionada após reiniciar, o cofre gerenciado impede fallback demo.
+O evento sanitizado `identity_rejected` permite identificar a recusa sem divulgar
+segredos. Resultados finais e artifact da execução estão no PR #24, atualizado
+incrementalmente em vez de abrir um PR duplicado sobre o mesmo trabalho.

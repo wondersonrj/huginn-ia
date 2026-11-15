@@ -27,6 +27,7 @@ def run(installer, upgrade=None):
         root = Path(temp) / 'Programa com espacos'
         env = {k: v for k, v in os.environ.items() if not k.startswith(('HUGINN_ORACLE_', 'HUGINN_API_TOKEN', 'HUGINN_DESKTOP_', 'HUGINN_STATE_DIR'))}
         env['HUGINN_WINTHOR_MODE'] = 'demo'
+        env['HUGINN_API_TOKEN'] = 'short'  # inherited invalid token must be overridden by DPAPI
         def install(path):
             return subprocess.run([str(path), '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART', '/SP-', '/DIR=' + str(root)], env=env, capture_output=True, timeout=180)
         assert install(installer).returncode == 0
@@ -90,6 +91,20 @@ def run(installer, upgrade=None):
                 assert primary.wait(timeout=30) == 0
                 # Reinstall/upgrade retains this user/installation's protected profile.
                 assert install(upgrade or installer).returncode == 0
+                # Fixture exists only in this disposable installed copy, never in the EXE.
+                version = json.loads((root / 'bootstrap.json').read_text())['version']
+                shutil.copy2(Path(__file__).parent / 'test_fixtures/oracledb.py', root / 'versions' / version / 'backend/oracledb.py')
+                (root / 'state/instance.json').unlink(missing_ok=True)
+                primary, info = start(); url = f'http://127.0.0.1:{info["port"]}'
+                page.goto(url)
+                expect(page.get_by_role('button', name='Editar Instalador sintético', exact=True)).to_be_visible()
+                expect(page.get_by_text('Consultas direcionadas a:', exact=False)).to_have_count(0)
+                from installed_oracle_smoke import exercise
+                exercise(page, root, info['version'])
+                # Restart preserves the coffer, but never restores an active destination.
+                page.once('dialog', lambda d: d.accept())
+                page.get_by_role('button', name='Encerrar HUGINN', exact=True).click()
+                assert primary.wait(timeout=30) == 0
                 (root / 'state/instance.json').unlink(missing_ok=True)
                 primary, info = start(); url = f'http://127.0.0.1:{info["port"]}'
                 page.goto(url)
