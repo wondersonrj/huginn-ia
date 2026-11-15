@@ -117,7 +117,9 @@ def run(installer, upgrade=None):
             assert subprocess.run([str(uninstaller), '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART', '/_?=' + str(root)], env=env, timeout=120).returncode == 0
             assert vault.exists()  # silent/default removal keeps data
             assert install(installer).returncode == 0
-            assert subprocess.run([str(root / 'unins000.exe'), '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART', '/REMOVEDATA=1', '/_?=' + str(root)], env=env, timeout=120).returncode == 0
+            # Inno can reserve another uninsNNN name while the old image is mapped.
+            assert list(root.glob('unins*.exe')), 'Reinstall must register its uninstaller'
+            assert subprocess.run([str(max(root.glob('unins*.exe'), key=lambda p: p.stat().st_mtime_ns)), '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART', '/REMOVEDATA=1', '/_?=' + str(root)], env=env, timeout=120).returncode == 0
             assert not vault.exists()
             with urllib.request.urlopen('http://127.0.0.1:8000') as response:
                 assert response.read() == b'FOREIGN-SERVICE'
