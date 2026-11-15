@@ -1,4 +1,6 @@
-HUGINN IA: diagnóstico WinThor restrito a metadados autorizados, separação de
-proprietários e supervisor de atualização/recuperação com manifesto assinado.
-Nenhum teste automatizado acessa Oracle real. A distribuição depende da
-aprovação da tag e da evidência Windows CI; nunca há deploy para clientes.
+HUGINN IA 0.4.0: workspace empresarial com sete módulos, dashboard responsivo,
+Central Oracle única e catálogo versionado de funcionalidades/validação.
+Preservados DPAPI, SID/HttpOnly, seleção explícita, leitura e atualização assinada.
+SEFAZ e comparação ERP seguem planejadas. Homologação usa dados sintéticos;
+Oracle real permanece pendente. Nenhuma publicação/produção é autorizada por
+este arquivo: distribuição exige aprovação humana e evidência Windows do commit.

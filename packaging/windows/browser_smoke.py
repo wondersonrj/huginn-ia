@@ -119,6 +119,11 @@ def scenario_connections(page):
         fill('Destino produção')
         page.get_by_label('Ambiente da conexão',exact=True).select_option('PRODUCAO')
         page.get_by_role('button',name='Salvar conexão',exact=True).click()
+        expect(page.get_by_role('button',name='Selecionar Destino produção',exact=True)).to_be_enabled()
+        # Any save invalidates selection by design; restore TESTE explicitly before canceling PROD.
+        expect(page.get_by_text('Destino selecionado: Perfil editado',exact=False)).to_have_count(0)
+        page.get_by_role('button',name='Selecionar Perfil editado',exact=True).click()
+        expect(page.get_by_text('Destino selecionado: Perfil editado',exact=False)).to_be_visible()
         page.once('dialog',lambda d:d.dismiss());page.get_by_role('button',name='Selecionar Destino produção',exact=True).click()
         expect(page.get_by_text('Destino selecionado: Perfil editado',exact=False)).to_be_visible()
         page.once('dialog',lambda d:d.accept());page.get_by_role('button',name='Selecionar Destino produção',exact=True).click()

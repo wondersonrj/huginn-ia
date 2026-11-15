@@ -39,12 +39,14 @@ serviços Windows nem altera outros serviços/portas/firewall.
    de desktop, se desejado. Menu Iniciar e desinstalador são criados.
 4. Ao concluir, selecione **Abrir HUGINN IA e configurar a conexão**. Em próximas
    aberturas, use o atalho. Não é necessário digitar token.
-5. No navegador, Conexões Oracle salvas é carregado automaticamente. Cadastre
+5. No navegador, abra **Configurações → Central de Conexões** pela barra lateral.
+   A lista é carregada automaticamente no acesso Windows. Cadastre
    nome, TESTE/PRODUÇÃO, host, porta, Service Name, usuário SELECT-only, schema e
    senha. Peça os dados ao DBA, somente no dispositivo. Não envie credenciais
    a suporte, GitHub ou chat. A senha é protegida por DPAPI CurrentUser.
 6. Teste o perfil (somente DUAL), selecione/confirmando ambiente, verifique a
-   conexão e confira a estrutura. Só então pesquise produtos/fornecedores.
+   conexão. Em **Diagnóstico e Suporte**, confira a estrutura. Depois use os
+   módulos **Produtos** e **Fornecedores**, separados na barra lateral.
    Seleção não abre conexão permanente; cada operação abre/fecha sessão read-only.
    PRODUÇÃO é rótulo escolhido pelo operador, com confirmação; não valida sozinho
    a identidade do banco nem autoriza escrita/release. CI só usa dados sintéticos.

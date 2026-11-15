@@ -1,85 +1,63 @@
-HUGINN IA - Windows portatil x64
+HUGINN IA 0.4.0 - homologacao Windows x64
 
-1. Requer Windows 10/11 x64 e um navegador moderno. Nao requer instalacao
-   de Python, Node.js ou Oracle Client. Nao requer administrador.
-2. Extraia TODO o ZIP para uma pasta local gravavel (pode conter espacos).
-3. De duplo clique em INICIAR_HUGINN.bat. A interface abrira automaticamente
-   em http://127.0.0.1:8000. Se o navegador nao abrir, digite esse endereco.
-4. Mantenha a janela aberta. Ctrl+C encerra o servidor. Fechar o navegador
-   nao encerra o servidor. Se a porta 8000 estiver ocupada, encerre o programa
-   que a utiliza e tente novamente.
+INSTALADOR (recomendado)
+Abra HUGINN-IA-Setup.exe e siga o assistente. Depois, use o atalho HUGINN IA.
+Nao requer Python, Node, Oracle Client, administrador ou reinicio do Windows.
+O acesso local e automatico por usuario Windows, com cookie HttpOnly/SID;
+nao e necessario copiar token, editar JSON ou executar comandos.
+Abra Configuracoes na barra lateral para acessar a unica Central de Conexoes.
+Cadastre nome, ambiente, host, porta, Service Name (nao SID), usuario SELECT,
+schema e senha, somente neste dispositivo. Teste, selecione explicitamente e
+verifique o destino. PRODUCAO exige confirmacao; nunca autoriza escrita/release.
+A senha fica protegida por DPAPI para este usuario e instalacao e nunca volta
+ao formulario. Reiniciar conserva perfis, mas exige nova selecao do destino.
 
-CONSULTAS WINTHOR
-Configure HUGINN_API_TOKEN na sessao local antes de iniciar, sem exibir
-ou persistir segredos. Informe esse token na secao Consultas WinThor.
-HUGINN_WINTHOR_MODE=demo usa cadastros ficticios e NAO conecta a Oracle.
-Para oracle, configure host, porta, service, usuario SELECT, senha e owner
-por ambiente no servidor. Veja docs/WINTHOR_MVP.md para passos seguros.
-O painel busca codigo/nome de produtos e fornecedores, com filtros e
-paginacao. O schema e conferido antes da consulta. Nao escreve no ERP.
-Encerrar acesso limpa token/resultados da pagina; nao encerra o servidor.
+PORTATIL LEGADO / DESENVOLVIMENTO
+Extraia TODO o ZIP para uma pasta local gravavel. Abra INICIAR_HUGINN.bat.
+Mantenha a janela aberta; Ctrl+C encerra o servidor. A porta padrao e 8000.
+Neste modo, configure HUGINN_API_TOKEN na sessao local antes de iniciar e
+informe o token em Configuracoes. Nao envie token ou senha a suporte/chat.
+HUGINN_WINTHOR_MODE=demo usa dados ficticios e NAO conecta a Oracle.
+Configuracao por ambiente continua opcional, conforme docs/WINTHOR_MVP.md.
+Encerrar acesso limpa dados da pagina; nao encerra o servidor portatil.
 
-ORACLE 19c - DIAGNOSTICO AVULSO
-Na secao Conexao Oracle direta, preencha host/IP, porta (normalmente 1521),
-Service Name (nao SID), usuario SOMENTE LEITURA autorizado pelo DBA e senha.
-Clique em Testar conexao Oracle. A senha e limpa apos cada tentativa. Nenhum
-campo e salvo em arquivo ou localStorage. Nao digite credenciais em chat.
-O computador precisa alcancar diretamente o listener (rede/VPN corporativa).
-O driver Thin nao precisa de OCI/Instant Client. A compatibilidade de rede,
-autenticacao e criptografia deve ser confirmada com o DBA.
+MODULOS
+Visao geral: contexto do destino/ambiente, somente leitura e atalhos.
+Auditoria NF-e: importe exemplos/nota-demo.xml ou XML local de ate 5 MB.
+O exemplo e sintetico, sem validade fiscal. Nao ha envio a SEFAZ nem comparacao ERP.
+Produtos e Fornecedores: filtros por codigo/nome, paginacao e mensagens de erro.
+Configuracoes: Central de Conexoes, CRUD, teste, selecao e migracao explicita.
+Funcionalidades e Validacao: catalogo, limites, testes, lacunas e relatorios
+legivel/JSON sanitizados. A revisao versionada nao testa o Oracle do cliente.
+Diagnostico e Suporte: schema/owners/sinonimos, atualizacao e manutencao local.
+Veja docs/INTERFACE_EMPRESARIAL.md e docs/MANUAL_MESTRE.md neste pacote.
 
-O teste de conexao so executa SET TRANSACTION READ ONLY e SELECT 1 FROM DUAL.
-O botao Diagnosticar tabelas WinThor consulta somente ALL_TAB_COLUMNS e
-ALL_TABLES para os nomes fixos PCPRODUT, PCFORNEC, PCPRODFILIAL, PCPRODFORNEC,
-PCNFENT, PCMOV e PCPEDIDO. Mostra proprietario, coluna e tipo, separando
-proprietarios diferentes. Nao resolve sinonimos. Nao visivel pode significar
-objeto inexistente OU falta de permissao, nao uma ausencia confirmada.
-A sessao do diagnostico e fechada sem commit. Esse diagnostico nao le
-registros comerciais. As buscas da secao Consultas WinThor leem somente
-codigo e nome autorizados, sem SQL livre, DML ou DDL. Para repetir uma operacao, informe a senha novamente.
-Uma resposta positiva confirma apenas o teste DUAL; nao valida mapeamento,
-permissoes em tabelas ou integracao fiscal. Use exclusivamente conta de leitura.
+ORACLE SOMENTE LEITURA
+Use conta autorizada pelo DBA com acesso de rede/VPN ao listener.
+O driver Thin nao exige OCI. Nao reduza politicas Oracle para contornar erros.
+O teste DUAL nao comprova SELECT nas tabelas. O diagnostico de schema diferencia
+owner errado, objeto nao visivel, colunas e permissoes sem modificar o banco.
+Produtos/fornecedores usam binds e allowlist, sem SQL livre, DML ou DDL.
+Cada operacao abre/fecha a sessao sem commit. Diagnostico pontual opcional usa
+os MESMOS campos da Central, sem segundo formulario ou persistencia de senha.
+Sua senha digitada e limpa apos a tentativa. Metadados ampliados de perfil salvo
+resolvem o segredo somente no backend. Revise nomes de owners antes de compartilhar.
+Nao desative seguranca de rede/autenticacao/criptografia. Confira listener,
+Service Name, conta, SELECT e schema com o DBA. Nao envie credenciais ao GitHub.
+A espera do navegador nao cancela imediatamente uma operacao Oracle ja iniciada.
 
-DIAGNOSTICO
-- Host/porta/rede: confira IP/DNS, firewall e listener com o DBA.
-- Service Name: confirme o nome registrado no listener, nao use SID.
-- Usuario/senha: confirme conta, bloqueio e expiracao com o DBA.
-- Thin incompatibilidade: consulte DBA sobre verificadores de senha e politica
-  de criptografia; nao desative seguranca para contornar o erro.
-- Tempo excedido: confira conectividade. A espera do navegador expira em 20s;
-  isso nao cancela imediatamente uma operacao Oracle ja iniciada.
-- Falha de DLL/inicializacao: use Windows x64 e extraia o pacote completo.
+ATUALIZACAO / RECUPERACAO
+Pacote de homologacao: atualizacoes desativadas, canal teste, sem publicacao.
+Atualizacao habilitada em distribuicao aprovada exige manifesto assinado e
+confirmacao; falha restaura a versao anterior. O Setup identifica a familia
+instalada e preserva token, cofre, preferencias e caminhos. Nao mova a instalacao
+ou copie o cofre entre usuarios. Uninstall preserva dados por padrao; remocao
+explicita e irreversivel tem confirmacao propria. Veja docs/INSTALACAO_WINDOWS.md
+e docs/ATUALIZACOES_WINDOWS.md. Nao reinicie o servidor para atualizar o app.
 
-XML
-Use exemplos/nota-demo.xml para verificar a importacao. E um XML sintetico
-para demonstracao estrutural, sem validade fiscal e sem envio a SEFAZ.
-
-LIMITES DE VALIDACAO
-O pacote foi gerado em Linux com runtime e wheels Windows x64. Consulte
-BUILD-INFO.json para versoes e checksum da origem do runtime. Testes Linux
-nao substituem executar este ZIP no Windows. Nao foi validada uma conexao
-com Oracle real. Nao ha credenciais reais neste pacote.
-
-Nao exponha este servidor local a rede/Internet. Consultas e diagnosticos Oracle exigem token local de 32+ caracteres;
-nao ha login individual/multiusuario. Consulte docs/WINTHOR_MVP.md. As licencas do Python estao em
-runtime/LICENSE.txt; as de dependencias ficam nos respectivos *.dist-info.
-
-ATUALIZACAO E RECUPERACAO
-Este bootstrap de desenvolvimento deixa a atualizacao desativada. O painel
-mostra versao, canal e status. Distribuicao ativada depende de chave publica,
-release aprovada e testes Windows. Nunca instala commits de main.
-O supervisor e runtime ficam fora de versions/. Preferencias nao sensiveis
-ficam em state/, fora da pasta versionada. Nao guarde senhas nessa pasta.
-Uma atualizacao habilitada pede aprovacao, reinicia e confirma a versao;
-falha restaura a versao anterior. Se aparecer recuperacao pendente, feche
-as instancias e abra novamente INICIAR_HUGINN.bat. Preserve versions/ e state/.
-Consulte docs/ATUALIZACOES_WINDOWS.md no repositorio para distribuicao segura.
-
-CONEXOES SALVAS (WINDOWS)
-Acesse Carregar conexoes salvas com o token local e cadastre um perfil.
-A senha fica protegida por DPAPI CurrentUser fora da pasta do aplicativo.
-Salvar nao seleciona e testar nao mantem sessao aberta. Reiniciar exige
-selecionar novamente, sem reentrar a senha Oracle. PRODUCAO exige confirmacao.
-Editar/excluir invalida a selecao. Nunca copie o cofre para suporte/backups
-do pacote. Veja docs/CONEXOES_SALVAS.md para permissao, migracao e recuperacao.
-Sem DPAPI nao ha persistencia de senha em texto puro.
+LIMITES E EVIDENCIAS
+Consulte BUILD-INFO.json e a evidencia CI do PR para commit, versao e hashes.
+Testes Windows/DPAPI/instalador usam drivers/dados sinteticos, sem Oracle real.
+Oracle real do cliente permanece pendente de homologacao autorizada.
+Nao exponha o servidor loopback a rede/Internet. Nao ha login multiusuario.
+Licencas: runtime/LICENSE.txt e respectivos arquivos *.dist-info.
