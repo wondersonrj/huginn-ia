@@ -256,3 +256,28 @@ sinalizava falha ao chamador (retornava 0). Corrigido com código de saída 8,
 tela de atualização não aplicada e bloqueio de abertura do novo aplicativo;
 rollback continua obrigatório ao fechar o Setup. A CI exige retorno de falha
 e instalação anterior íntegra antes de aceitar o artifact.
+
+## Issue #29 — interface empresarial e inventário funcional
+
+Versão de homologação 0.4.0 sobre main após PR #28. [Guia completo da interface,
+arquitetura, catálogo, reprodução e limites](INTERFACE_EMPRESARIAL.md).
+[Antes/depois dos sete módulos e mobile](screenshots/issue-29/README.md).
+
+O problema era concentração de fluxos em uma tela e duas áreas de senha Oracle.
+A navegação agora separa operação, configuração e diagnóstico. Uma única Central
+preserva CRUD/teste/seleção/PRODUÇÃO; diagnóstico pontual reutiliza seus campos.
+Dashboard exibe contexto real, sem credenciais técnicas; NF-e XML local e consultas
+PCPRODUT/PCFORNEC têm telas próprias. Catálogo versionado enumera 17 recursos com
+evidências/lacunas e relatórios sanitizados; SEFAZ e comparação ERP seguem planejadas.
+
+Mantidos DPAPI, cookie HttpOnly/SID, token volátil, seleção explícita, revisão de
+contexto, leitura/binds/allowlists, auditoria, updates assinados e política de
+instalação/rollback. O adaptador de metadados de perfil salvo resolve senha só no
+servidor. Requests cancelados ou antigos não podem restaurar destino/resultados.
+CI verifica catálogo/rotas/testes e percorre os módulos, filtros/paginação,
+negativos, confirmações, XML, relatórios, instalação, upgrade e recuperação Windows.
+
+Validação local: 325 aprovados/2 ignorados, build web e oito cenários browser.
+Runs Windows e artifact final do HEAD estão vinculados no PR da #29; resultados
+simulados não homologam Oracle real. Nenhuma proteção alterada, merge, release,
+publicação, reboot do servidor ou ativação silenciosa de produção/updates.

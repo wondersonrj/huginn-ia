@@ -1,0 +1,605 @@
+{
+  "schema_version": 1,
+  "catalog_version": "0.4.0",
+  "reviewed_at": "2026-11-15",
+  "features": [
+    {
+      "id": "navigation",
+      "module": "visao-geral",
+      "title": "Workspace e navegação",
+      "purpose": "Encontrar conexão e módulos sem misturar configuração, pesquisa e notas.",
+      "inputs": "Acesso local ao aplicativo.",
+      "expected": "Resumo do destino e ambiente; atalhos para os três módulos de trabalho.",
+      "steps": [
+        "Abra o HUGINN.",
+        "Use a navegação lateral ou os atalhos da Visão geral."
+      ],
+      "limits": [
+        "Nenhum indicador é uma medição financeira ou monitoramento permanente."
+      ],
+      "status": "disponivel",
+      "validation": {
+        "last_checked": "2026-11-15",
+        "scope": "Testes automatizados com dados sintéticos; Oracle real pendente.",
+        "gap": "Navegação validada no navegador; não requer Oracle.",
+        "evidence": [
+          {
+            "file": "packaging/windows/browser_smoke.py",
+            "symbol": "scenario_navigation"
+          }
+        ]
+      },
+      "api_routes": [
+        "/api/version"
+      ]
+    },
+    {
+      "id": "local-access",
+      "module": "configuracoes",
+      "title": "Acesso local protegido",
+      "purpose": "Autenticar o navegador no aplicativo instalado.",
+      "inputs": "Mesmo usuário Windows da instalação; no modo portátil legado, token local de 32 ou mais caracteres.",
+      "expected": "Acesso automático Windows por cookie protegido ou recusa explícita de autenticação.",
+      "steps": [
+        "Abra pelo atalho.",
+        "Aguarde a confirmação de acesso local.",
+        "Em desenvolvimento, informe o token somente em Configurações."
+      ],
+      "limits": [
+        "Token DPAPI não é entregue ao JavaScript.",
+        "Cookie HttpOnly/SameSite e verificação de SID; sem WebStorage."
+      ],
+      "status": "disponivel",
+      "validation": {
+        "last_checked": "2026-11-15",
+        "scope": "Autenticação/SID/DPAPI nativos no smoke Windows; negativos também em testes isolados.",
+        "gap": "Não autoriza acesso remoto nem outros usuários Windows.",
+        "evidence": [
+          {
+            "file": "backend/tests/test_desktop_session.py",
+            "symbol": "test_cookie_session_never_returns_persistent_token"
+          },
+          {
+            "file": "packaging/windows/browser_smoke.py",
+            "symbol": "scenario_access"
+          }
+        ]
+      },
+      "api_routes": [
+        "/api/local-session",
+        "/api/local-instance"
+      ]
+    },
+    {
+      "id": "saved-profiles",
+      "module": "configuracoes",
+      "title": "Central de Conexões Oracle",
+      "purpose": "Cadastrar, editar e excluir destinos em um único fluxo.",
+      "inputs": "Nome, ambiente, host, porta, serviço, usuário, owner e senha local.",
+      "expected": "Perfil salvo com senha protegida no Windows; senha nunca carregada no formulário.",
+      "steps": [
+        "Abra Configurações.",
+        "Cadastre ou edite o perfil.",
+        "Salve e selecione explicitamente o destino."
+      ],
+      "limits": [
+        "DPAPI por usuário e diretório de instalação.",
+        "Senha em branco ao editar mantém a senha existente.",
+        "Editar/excluir invalida a seleção; remoção de senha bloqueia uso."
+      ],
+      "status": "disponivel",
+      "validation": {
+        "last_checked": "2026-11-15",
+        "scope": "CRUD e DPAPI reais no Windows CI; sem Oracle real.",
+        "gap": "Não comprova o ambiente Oracle do cliente.",
+        "evidence": [
+          {
+            "file": "backend/tests/test_connection_store.py",
+            "symbol": "test_save_restart_select_and_never_serialize_password"
+          },
+          {
+            "file": "packaging/windows/browser_smoke.py",
+            "symbol": "scenario_connections"
+          }
+        ]
+      },
+      "api_routes": [
+        "/api/connections/list",
+        "/api/connections/save",
+        "/api/connections/delete",
+        "/api/connections/remove-password"
+      ]
+    },
+    {
+      "id": "destination",
+      "module": "configuracoes",
+      "title": "Seleção de TESTE e PRODUÇÃO",
+      "purpose": "Deixar claro qual destino receberá cada leitura.",
+      "inputs": "Perfil salvo, revisão atual e confirmação do ambiente.",
+      "expected": "Nome e ambiente visíveis em todas as telas; consultas vinculadas ao id/revisão.",
+      "steps": [
+        "Selecione o perfil.",
+        "Confirme PRODUÇÃO quando solicitado.",
+        "Verifique a conexão antes de pesquisar."
+      ],
+      "limits": [
+        "Sem seleção automática após reiniciar.",
+        "Nenhum fallback para outro destino em falha ou edição."
+      ],
+      "status": "disponivel",
+      "validation": {
+        "last_checked": "2026-11-15",
+        "scope": "Testes automatizados com dados sintéticos; Oracle real pendente.",
+        "gap": "Não comprova o ambiente Oracle do cliente.",
+        "evidence": [
+          {
+            "file": "backend/tests/test_connection_store.py",
+            "symbol": "test_explicit_production_confirmation_and_no_connection_on_select"
+          },
+          {
+            "file": "packaging/windows/browser_smoke.py",
+            "symbol": "scenario_connections"
+          }
+        ]
+      },
+      "api_routes": [
+        "/api/connections/select"
+      ]
+    },
+    {
+      "id": "dual-check",
+      "module": "configuracoes",
+      "title": "Teste pontual de conexão",
+      "purpose": "Verificar uma sessão Oracle somente leitura sem mantê-la aberta.",
+      "inputs": "Perfil salvo; confirmação explícita de PRODUÇÃO quando aplicável.",
+      "expected": "DUAL confirmado ou erro sanitizado de rede/serviço/credenciais.",
+      "steps": [
+        "Use Testar no perfil.",
+        "Para consultas, selecione o destino e use Verificar conexão WinThor."
+      ],
+      "limits": [
+        "DUAL não comprova SELECT no catálogo.",
+        "Sessão fechada sem commit; conta de leitura é requisito."
+      ],
+      "status": "disponivel",
+      "validation": {
+        "last_checked": "2026-11-15",
+        "scope": "Testes automatizados com dados sintéticos; Oracle real pendente.",
+        "gap": "Não comprova o ambiente Oracle do cliente.",
+        "evidence": [
+          {
+            "file": "backend/tests/test_connection_store.py",
+            "symbol": "test_point_check_uses_only_dual_and_does_not_select"
+          },
+          {
+            "file": "packaging/windows/browser_smoke.py",
+            "symbol": "scenario_connections"
+          }
+        ]
+      },
+      "api_routes": [
+        "/api/connections/test",
+        "/api/winthor/health"
+      ]
+    },
+    {
+      "id": "products",
+      "module": "produtos",
+      "title": "Pesquisa de produtos",
+      "purpose": "Consultar cadastros de produtos do destino selecionado.",
+      "inputs": "Conexão verificada; código positivo opcional, descrição e tamanho da página.",
+      "expected": "Tabela com código e nome; vazio, erro, carregamento ou paginação.",
+      "steps": [
+        "Abra Produtos.",
+        "Preencha código ou parte da descrição.",
+        "Busque e navegue pelas páginas."
+      ],
+      "limits": [
+        "PCPRODUT: CODPROD e DESCRICAO.",
+        "Somente SELECT parametrizado; 1–50 registros/página, máximo 100 páginas; nome até 80 caracteres."
+      ],
+      "status": "disponivel",
+      "validation": {
+        "last_checked": "2026-11-15",
+        "scope": "Testes automatizados com dados sintéticos; Oracle real pendente.",
+        "gap": "Não comprova o ambiente Oracle do cliente.",
+        "evidence": [
+          {
+            "file": "backend/tests/test_winthor.py",
+            "symbol": "test_real_query_validates_metadata_and_binds_every_filter"
+          },
+          {
+            "file": "packaging/windows/browser_smoke.py",
+            "symbol": "scenario_catalog_search"
+          }
+        ]
+      },
+      "api_routes": [
+        "/api/winthor/produtos"
+      ]
+    },
+    {
+      "id": "suppliers",
+      "module": "fornecedores",
+      "title": "Pesquisa de fornecedores",
+      "purpose": "Consultar fornecedores sem alterar o ERP.",
+      "inputs": "Conexão verificada; código positivo opcional, nome e tamanho da página.",
+      "expected": "Tabela de código/nome, estados claros e páginas limitadas.",
+      "steps": [
+        "Abra Fornecedores.",
+        "Informe o filtro e busque.",
+        "Refine a pesquisa se atingir o limite."
+      ],
+      "limits": [
+        "PCFORNEC: CODFORNEC e FORNECEDOR.",
+        "Mesmos binds, limites e controles de revisão da pesquisa de produtos."
+      ],
+      "status": "disponivel",
+      "validation": {
+        "last_checked": "2026-11-15",
+        "scope": "Testes automatizados com dados sintéticos; Oracle real pendente.",
+        "gap": "Não comprova o ambiente Oracle do cliente.",
+        "evidence": [
+          {
+            "file": "backend/tests/test_connection_store.py",
+            "symbol": "test_saved_supplier_query_keeps_schema_validation_and_binds"
+          },
+          {
+            "file": "packaging/windows/browser_smoke.py",
+            "symbol": "scenario_catalog_search"
+          }
+        ]
+      },
+      "api_routes": [
+        "/api/winthor/fornecedores"
+      ]
+    },
+    {
+      "id": "schema",
+      "module": "suporte",
+      "title": "Diagnóstico de estrutura",
+      "purpose": "Separar owner, colunas, visibilidade e SELECT sem presumir falta de grants.",
+      "inputs": "Destino selecionado e verificação da conexão.",
+      "expected": "Relatório por tabela, causas sanitizadas, owners candidatos, contexto e sinônimos visíveis.",
+      "steps": [
+        "Abra Diagnóstico e Suporte.",
+        "Use Diagnosticar estrutura.",
+        "Se necessário, edite o owner na Central e confirme novamente."
+      ],
+      "limits": [
+        "Apenas PCPRODUT/PCFORNEC e metadados/SELECT sem linhas.",
+        "Até 20 candidatos; não concede permissões nem escolhe owner/ambiente silenciosamente."
+      ],
+      "status": "disponivel",
+      "validation": {
+        "last_checked": "2026-11-15",
+        "scope": "Testes automatizados com dados sintéticos; Oracle real pendente.",
+        "gap": "Não comprova o ambiente Oracle do cliente.",
+        "evidence": [
+          {
+            "file": "backend/tests/test_schema_recovery.py",
+            "symbol": "test_dual_ok_schema_failure_is_per_table_actionable_and_secret_free"
+          },
+          {
+            "file": "packaging/windows/browser_smoke.py",
+            "symbol": "scenario_schema"
+          }
+        ]
+      },
+      "api_routes": [
+        "/api/winthor/diagnostico"
+      ]
+    },
+    {
+      "id": "extended-metadata",
+      "module": "configuracoes",
+      "title": "Metadados ampliados do perfil",
+      "purpose": "Manter o diagnóstico legado na mesma Central, sem segundo formulário de senha.",
+      "inputs": "Perfil salvo com senha protegida e confirmação do ambiente.",
+      "expected": "Nomes de owners, colunas e tipos, separados por tabela.",
+      "steps": [
+        "Abra os detalhes técnicos do perfil.",
+        "Use Metadados ampliados.",
+        "Leia o relatório; nenhuma conexão fica selecionada por essa ação."
+      ],
+      "limits": [
+        "Lista fixa de sete tabelas WinThor.",
+        "Somente tabelas visíveis no dicionário; não resolve sinônimos/views neste diagnóstico legado.",
+        "Credenciais são resolvidas somente no backend.",
+        "Diagnóstico pontual sem salvar reutiliza os campos e a senha desta mesma Central, apagada após a tentativa."
+      ],
+      "status": "disponivel",
+      "validation": {
+        "last_checked": "2026-11-15",
+        "scope": "Testes automatizados com dados sintéticos; Oracle real pendente.",
+        "gap": "Não comprova o ambiente Oracle do cliente.",
+        "evidence": [
+          {
+            "file": "backend/tests/test_connection_store.py",
+            "symbol": "test_saved_metadata_diagnostic_keeps_password_on_server"
+          },
+          {
+            "file": "packaging/windows/browser_smoke.py",
+            "symbol": "scenario_connections"
+          }
+        ]
+      },
+      "api_routes": [
+        "/api/connections/diagnostic",
+        "/api/oracle/testar",
+        "/api/oracle/diagnostico"
+      ]
+    },
+    {
+      "id": "environment-import",
+      "module": "configuracoes",
+      "title": "Migração da configuração por ambiente",
+      "purpose": "Reutilizar configuração local legada mediante ação explícita.",
+      "inputs": "Variáveis já configuradas no servidor e confirmação local.",
+      "expected": "Perfil protegido ou origem de ambiente escolhida explicitamente.",
+      "steps": [
+        "Abra Opções avançadas de migração na Central.",
+        "Escolha a ação e confirme.",
+        "Confira o destino antes de consultar."
+      ],
+      "limits": [
+        "Não classifica o ambiente automaticamente como TESTE.",
+        "Senha nunca é devolvida ao navegador."
+      ],
+      "status": "disponivel",
+      "validation": {
+        "last_checked": "2026-11-15",
+        "scope": "Testes automatizados com dados sintéticos; Oracle real pendente.",
+        "gap": "Não comprova o ambiente Oracle do cliente.",
+        "evidence": [
+          {
+            "file": "backend/tests/test_connection_store.py",
+            "symbol": "test_migration_reads_secret_only_on_server_and_requires_selection"
+          },
+          {
+            "file": "packaging/windows/browser_smoke.py",
+            "symbol": "scenario_connections"
+          }
+        ]
+      },
+      "api_routes": [
+        "/api/connections/environment",
+        "/api/connections/import-environment"
+      ]
+    },
+    {
+      "id": "nfe-xml",
+      "module": "nfe",
+      "title": "Leitura local de XML NF-e",
+      "purpose": "Organizar os itens de um arquivo sem enviar documentos a serviços externos.",
+      "inputs": "Arquivo XML NF-e/nfeProc de até 5 MB.",
+      "expected": "Número, série, emitente/CNPJ, códigos, descrição, NCM, CFOP, quantidade e valor dos itens.",
+      "steps": [
+        "Abra Auditoria NF-e.",
+        "Selecione o XML.",
+        "Confira os itens e limpe a nota ao terminar."
+      ],
+      "limits": [
+        "Leitura preliminar local; sem SEFAZ e sem auditoria fiscal/cadastral concluída.",
+        "XML inválido, entidades externas e valores inválidos são rejeitados."
+      ],
+      "status": "disponivel",
+      "validation": {
+        "last_checked": "2026-11-15",
+        "scope": "Parser real local e testes de navegador com XML sintético.",
+        "gap": "Comparação fiscal/ERP e SEFAZ não implementadas.",
+        "evidence": [
+          {
+            "file": "backend/tests/test_nfe.py",
+            "symbol": "test_parse"
+          },
+          {
+            "file": "packaging/windows/browser_smoke.py",
+            "symbol": "scenario_nfe"
+          }
+        ]
+      },
+      "api_routes": [
+        "/api/nfe/importar"
+      ]
+    },
+    {
+      "id": "windows-setup",
+      "module": "suporte",
+      "title": "Instalação e migração Windows",
+      "purpose": "Atualizar a mesma família sem perder perfis e credenciais.",
+      "inputs": "Setup de homologação, mesmo usuário e diretório registrado.",
+      "expected": "Instância própria encerrada após prova, migração validada ou rollback/recuperação.",
+      "steps": [
+        "Execute o Setup.",
+        "Confira versão e pasta.",
+        "Conclua e selecione o perfil salvo ao reabrir."
+      ],
+      "limits": [
+        "Não reinicia Windows nem mata serviços de terceiros.",
+        "Runtime/família incompatível e mudança de diretório são recusados.",
+        "Unsigned de homologação não equivale a release aprovada."
+      ],
+      "status": "em_homologacao",
+      "validation": {
+        "last_checked": "2026-11-15",
+        "scope": "EXEs/DPAPI/SID reais no Windows CI; instalações antigas e portátil.",
+        "gap": "Não foi instalado remotamente no servidor do cliente.",
+        "evidence": [
+          {
+            "file": "packaging/windows/installer_upgrade_smoke.py",
+            "symbol": "case"
+          },
+          {
+            "file": "backend/tests/test_installer_migration.py",
+            "symbol": "test_upgrade_commits_only_after_health_and_preserves_private_bytes"
+          }
+        ]
+      },
+      "api_routes": []
+    },
+    {
+      "id": "signed-update",
+      "module": "suporte",
+      "title": "Atualizações com assinatura e rollback",
+      "purpose": "Preparar novas versões compatíveis sem substituir o runtime manualmente.",
+      "inputs": "Bootstrap habilitado, chave pública e release assinada aprovada.",
+      "expected": "Verificação de versão/canal/commit/runtime/hash; aplicação com confirmação ou rollback.",
+      "steps": [
+        "Abra Versão e atualizações.",
+        "Verifique a disponibilidade quando habilitado.",
+        "Confirme a atualização e a janela nativa."
+      ],
+      "limits": [
+        "Distribuição e auto-update permanecem desativados nesta homologação.",
+        "Não é atualização silenciosa; bootstrap antigo pode exigir migração inicial."
+      ],
+      "status": "em_homologacao",
+      "validation": {
+        "last_checked": "2026-11-15",
+        "scope": "Fixtures assinadas isoladas e processos reais no Windows CI.",
+        "gap": "Ativação depende de assinatura/infra/aprovação; nenhuma release publicada.",
+        "evidence": [
+          {
+            "file": "backend/tests/test_updater.py",
+            "symbol": "test_compatible_signed_commit_update_preserves_state"
+          },
+          {
+            "file": "packaging/windows/update_smoke.py",
+            "symbol": "run"
+          }
+        ]
+      },
+      "api_routes": [
+        "/api/updates/status",
+        "/api/updates/check",
+        "/api/updates/apply"
+      ]
+    },
+    {
+      "id": "lifecycle",
+      "module": "suporte",
+      "title": "Encerrar e recriar acesso local",
+      "purpose": "Manter controle sobre esta instalação sem afetar outras aplicações.",
+      "inputs": "Acesso Windows autenticado e confirmação do operador.",
+      "expected": "Encerramento próprio; rotação do token apenas quando solicitada, preservando perfis.",
+      "steps": [
+        "Abra Diagnóstico e Suporte.",
+        "Escolha a ação de manutenção e confirme.",
+        "Reabra pelo atalho."
+      ],
+      "limits": [
+        "Não é reinicialização do servidor.",
+        "Recriar acesso encerra a sessão; não apaga conexões."
+      ],
+      "status": "disponivel",
+      "validation": {
+        "last_checked": "2026-11-15",
+        "scope": "Testes automatizados com dados sintéticos; Oracle real pendente.",
+        "gap": "Não comprova o ambiente Oracle do cliente.",
+        "evidence": [
+          {
+            "file": "backend/tests/test_desktop_session.py",
+            "symbol": "test_reset_requires_owned_session_and_preserves_profiles"
+          },
+          {
+            "file": "packaging/windows/browser_smoke.py",
+            "symbol": "scenario_access"
+          }
+        ]
+      },
+      "api_routes": [
+        "/api/local-stop",
+        "/api/local-reset"
+      ]
+    },
+    {
+      "id": "validation-report",
+      "module": "validacao",
+      "title": "Catálogo e relatório sanitizado",
+      "purpose": "Explicar capacidades e evidências sem confundir funções com quantidade de testes.",
+      "inputs": "Catálogo versionado do produto; filtros opcionais.",
+      "expected": "Passo a passo legível e exportações Markdown/JSON sem dados da sessão.",
+      "steps": [
+        "Filtre por módulo ou status.",
+        "Expanda os detalhes do recurso.",
+        "Baixe o relatório de funcionalidades."
+      ],
+      "limits": [
+        "Relatório estático de validação; não testa o Oracle nem contém logs, host ou credenciais do cliente."
+      ],
+      "status": "disponivel",
+      "validation": {
+        "last_checked": "2026-11-15",
+        "scope": "Catálogo verificado na CI e downloads exercitados no navegador.",
+        "gap": "Não é um relatório de conectividade em tempo real.",
+        "evidence": [
+          {
+            "file": "backend/tests/test_feature_catalog.py",
+            "symbol": "test_evidence_symbols_and_routes_exist"
+          },
+          {
+            "file": "packaging/windows/browser_smoke.py",
+            "symbol": "scenario_features"
+          }
+        ]
+      },
+      "api_routes": []
+    },
+    {
+      "id": "sefaz",
+      "module": "nfe",
+      "title": "Integração SEFAZ",
+      "purpose": "Distinguir a leitura de arquivo da consulta a serviços fiscais.",
+      "inputs": "Não disponível nesta versão.",
+      "expected": "Nenhuma conexão ou consulta SEFAZ executada.",
+      "steps": [
+        "Utilize somente o XML local nesta versão."
+      ],
+      "limits": [
+        "Não há webservice SEFAZ, certificado ou envio automático implementado."
+      ],
+      "status": "planejado",
+      "validation": {
+        "last_checked": "2026-11-15",
+        "scope": "CI verifica que não há rota ativa associada a este recurso.",
+        "gap": "Integração não implementada; sem prazo afirmado.",
+        "evidence": [
+          {
+            "file": "backend/tests/test_feature_catalog.py",
+            "symbol": "test_planned_features_have_no_active_api"
+          }
+        ]
+      },
+      "api_routes": []
+    },
+    {
+      "id": "erp-comparison",
+      "module": "nfe",
+      "title": "Comparação cadastral e fiscal",
+      "purpose": "Explicitar a lacuna entre ler XML e confirmar divergências no ERP.",
+      "inputs": "Não disponível nesta versão.",
+      "expected": "Itens do XML aguardam comparação; nenhuma divergência confirmada.",
+      "steps": [
+        "Confira os dados lidos do XML.",
+        "Não interprete leitura como auditoria concluída."
+      ],
+      "limits": [
+        "Não há conciliação automática, validação fiscal ou escrita em WinThor implementadas."
+      ],
+      "status": "planejado",
+      "validation": {
+        "last_checked": "2026-11-15",
+        "scope": "Estado de espera apresentado e verificado no navegador.",
+        "gap": "Recurso ainda não implementado.",
+        "evidence": [
+          {
+            "file": "backend/tests/test_feature_catalog.py",
+            "symbol": "test_planned_features_have_no_active_api"
+          }
+        ]
+      },
+      "api_routes": []
+    }
+  ]
+}

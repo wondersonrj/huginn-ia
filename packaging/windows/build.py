@@ -81,11 +81,11 @@ def build(output, version=None, channel=None, enable_updates=False, public_key_f
         for name in ['launcher.py', 'desktop.py', 'updater.py', 'INICIAR_HUGINN.bat', 'LEIA-ME.txt']:
             source = REPO / 'packaging/windows' / name
             if name.endswith(('.bat', '.txt')):
-                (root / name).write_bytes(source.read_text().replace('\r\n', '\n').replace('\n', '\r\n').encode('utf-8'))
+                (root / name).write_bytes(source.read_text(encoding='utf-8').replace('\r\n', '\n').replace('\n', '\r\n').encode('utf-8'))
             else:
                 shutil.copy2(source, root / name)
         (root / 'docs').mkdir()
-        for doc in ['DIAGNOSTICO_ORACLE.md', 'INSTALACAO_WINDOWS.md', 'CONEXOES_SALVAS.md', 'WINTHOR_MVP.md', 'ATUALIZACOES_WINDOWS.md', 'CONEXAO_ORACLE.md', 'DISTRIBUICAO_RELEASES.md', 'PREPARAR_TESTES_PELO_GITHUB.md']:
+        for doc in ['INTERFACE_EMPRESARIAL.md', 'MANUAL_MESTRE.md', 'DIAGNOSTICO_ORACLE.md', 'INSTALACAO_WINDOWS.md', 'CONEXOES_SALVAS.md', 'WINTHOR_MVP.md', 'ATUALIZACOES_WINDOWS.md', 'CONEXAO_ORACLE.md', 'DISTRIBUICAO_RELEASES.md', 'PREPARAR_TESTES_PELO_GITHUB.md']:
             shutil.copy2(REPO / 'docs' / doc, root / 'docs' / doc)
         (root / 'exemplos').mkdir()
         # Extract only the existing synthetic fixture; never include local config.

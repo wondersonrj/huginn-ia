@@ -1,6 +1,7 @@
 """UI/API acceptance against CI-only driver double in a disposable installed tree."""
 import json
 from playwright.sync_api import expect
+from ui_flow import go
 
 
 def exercise(page, root, version):
@@ -16,16 +17,18 @@ def exercise(page, root, version):
     def ref(profile): return {k: profile[k] for k in ('id', 'revision')}
     def context(profile): return dict(connection_id=profile['id'], connection_revision=profile['revision'])
 
+    go(page, 'configuracoes')
     page.get_by_role('button', name='Testar Instalador sintético', exact=True).click()
     expect(page.get_by_text('Último teste pontual confirmado:', exact=False)).to_be_visible()
     page.get_by_role('button', name='Selecionar Instalador sintético', exact=True).click()
-    expect(page.get_by_text('Consultas direcionadas a: Instalador sintético — TESTE', exact=True)).to_be_visible()
+    expect(page.get_by_text('Destino selecionado: Instalador sintético', exact=False)).to_be_visible()
     page.get_by_role('button', name='Verificar conexão WinThor', exact=True).click()
     expect(page.get_by_text('ORACLE — somente leitura', exact=True)).to_be_visible()
+    go(page, 'suporte')
     page.get_by_role('button', name='Diagnosticar estrutura', exact=True).click()
     expect(page.get_by_text('Colunas e tipos confirmados nos metadados desta conexão.', exact=True)).to_be_visible()
     for kind, code, label in [('produtos', '101', 'Produto CI Oracle'), ('fornecedores', '202', 'Fornecedor CI Oracle')]:
-        page.get_by_label('Cadastro', exact=True).select_option(kind)
+        go(page, kind)
         page.get_by_label('Código do cadastro', exact=True).fill(code)
         page.get_by_role('button', name='Buscar cadastros', exact=True).click()
         expect(page.get_by_role('table', name='Cadastros WinThor').get_by_text(label, exact=True)).to_be_visible()
@@ -51,10 +54,11 @@ def exercise(page, root, version):
         assert result['status'] == status and message in json.dumps(result['body'], ensure_ascii=False), (action, result)
         assert 'invalid-synthetic' not in json.dumps(result)
         if action == 'diagnostico':
-            page.reload()
+            page.reload(); go(page, 'configuracoes')
             expect(page.get_by_role('button', name='Editar Instalador sintético', exact=True)).to_be_visible()
             page.get_by_role('button', name='Verificar conexão WinThor', exact=True).click()
             expect(page.get_by_text('ORACLE — somente leitura', exact=True)).to_be_visible()
+            go(page, 'suporte')
             page.get_by_role('button', name='Diagnosticar estrutura', exact=True).click()
             expect(page.get_by_text('Diagnóstico Oracle parcial: confira a causa de cada tabela abaixo.', exact=True)).to_be_visible()
             expect(page.get_by_text('Owner configurado: WRONG', exact=True)).to_be_visible()
@@ -76,6 +80,6 @@ def exercise(page, root, version):
     assert {'dual', 'PCPRODUT_metadata', 'PCFORNEC_metadata', 'PCPRODUT_bound_query', 'PCFORNEC_bound_query'} <= events
     audit = (root / 'state/audit.jsonl').read_text()
     assert 'synthetic-installer-only' not in audit and 'invalid-synthetic' not in audit
-    page.reload()
+    page.reload(); go(page, 'configuracoes')
     expect(page.get_by_role('button', name='Editar Instalador sintético', exact=True)).to_be_visible()
     print('PASS: installed Oracle-mode synthetic driver: DUAL, metadata, CODPROD/CODFORNEC binds and UI rows; invalid password, unavailable service, timeouts, wrong owner, missing SELECT, switch/stale context, missing secret, sanitized audit')

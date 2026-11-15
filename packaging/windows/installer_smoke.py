@@ -17,6 +17,7 @@ import threading
 import time
 import urllib.request
 from http.server import BaseHTTPRequestHandler, HTTPServer
+from ui_flow import go
 from playwright.sync_api import sync_playwright, expect
 
 
@@ -82,8 +83,8 @@ def run(installer, upgrade=None):
             with sync_playwright() as playwright:
                 browser = playwright.chromium.launch()
                 page = browser.new_page()
-                page.goto(url)
-                expect(page.get_by_role('heading', name='HUGINN IA · Consulta WinThor')).to_be_visible()
+                page.goto(url); go(page, 'configuracoes')
+                expect(page.get_by_role('heading', name='Configurações')).to_be_visible()
                 expect(page.get_by_label('Token de acesso local', exact=True)).to_have_count(0)
                 expect(page.get_by_label('Nome da conexão', exact=True)).to_be_visible()
                 assert page.evaluate('localStorage.length + sessionStorage.length') == 0
@@ -102,6 +103,7 @@ def run(installer, upgrade=None):
                 expect(page.locator('.connection-manager [role=alert]')).to_be_visible()
                 assert 'synthetic-installer-only' not in page.locator('body').inner_text()
                 page.once('dialog', lambda d: d.accept())
+                go(page, 'suporte')
                 page.get_by_role('button', name='Encerrar HUGINN', exact=True).click()
                 assert primary.wait(timeout=30) == 0
                 # Reinstall/upgrade retains this user/installation's protected profile.
@@ -111,18 +113,19 @@ def run(installer, upgrade=None):
                 shutil.copy2(Path(__file__).parent / 'test_fixtures/oracledb.py', root / 'versions' / version / 'backend/oracledb.py')
                 (root / 'state/instance.json').unlink(missing_ok=True)
                 primary, info = start(); url = f'http://127.0.0.1:{info["port"]}'
-                page.goto(url)
+                page.goto(url); go(page, 'configuracoes')
                 expect(page.get_by_role('button', name='Editar Instalador sintético', exact=True)).to_be_visible()
                 expect(page.get_by_text('Consultas direcionadas a:', exact=False)).to_have_count(0)
                 from installed_oracle_smoke import exercise
                 exercise(page, root, info['version'])
                 # Restart preserves the coffer, but never restores an active destination.
                 page.once('dialog', lambda d: d.accept())
+                go(page, 'suporte')
                 page.get_by_role('button', name='Encerrar HUGINN', exact=True).click()
                 assert primary.wait(timeout=30) == 0
                 (root / 'state/instance.json').unlink(missing_ok=True)
                 primary, info = start(); url = f'http://127.0.0.1:{info["port"]}'
-                page.goto(url)
+                page.goto(url); go(page, 'configuracoes')
                 expect(page.get_by_role('button', name='Editar Instalador sintético', exact=True)).to_be_visible()
                 expect(page.get_by_text('Consultas direcionadas a:', exact=False)).to_have_count(0)
                 # Fake/corrupt descriptor cannot authenticate a foreign server on port 8000.
@@ -138,6 +141,7 @@ def run(installer, upgrade=None):
                 from app.connection_store import current_store
                 vault = current_store().root
                 assert token.encode() not in (vault / 'local-token.bin').read_bytes()
+                go(page, 'suporte')
                 page.once('dialog', lambda d: d.accept()); page.get_by_role('button', name='Encerrar HUGINN', exact=True).click()
                 assert primary.wait(timeout=30) == 0
                 browser.close()

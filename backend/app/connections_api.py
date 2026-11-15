@@ -8,6 +8,7 @@ from pydantic import BaseModel, ConfigDict, Field, SecretStr, ValidationError
 from starlette.concurrency import run_in_threadpool
 from app.connection_store import Conflict, SelectionRequired, current_store
 from app.oracle_connector import OracleConfig, check_connection, connection_diagnostic
+from app.schema_diagnostic import inspect_schema
 from app.windows_secrets import VaultError
 from app.winthor_api import authorize, record
 import os
@@ -77,6 +78,12 @@ def operate(action, data):
     if action in {'delete', 'remove-password'}:
         store.remove(ref.id, ref.revision, password_only=action == 'remove-password')
         return dict(active=None, status='removed')
+    if action == 'diagnostic':
+        resolved = store.for_test(ref.id, ref.revision, ref.confirm_environment)
+        try:
+            return inspect_schema(resolved.config)
+        except Exception as exc:
+            raise HTTPException(502, connection_diagnostic(exc)) from None
     if action == 'test':
         resolved = store.for_test(ref.id, ref.revision, ref.confirm_environment)
         try:
@@ -159,3 +166,8 @@ async def environment(request: Request):
 @router.post('/import-environment')
 async def import_environment(request: Request):
     return await handle(request, 'import-environment')
+
+
+@router.post('/diagnostic')
+async def diagnostic_profile(request: Request):
+    return await handle(request, 'diagnostic')

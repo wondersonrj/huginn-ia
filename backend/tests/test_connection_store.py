@@ -204,7 +204,7 @@ def test_api_create_edit_list_remove_never_returns_secrets(api_store):
     assert client().post('/api/connections/delete', json=dict(id=profile['id'], revision=profile['revision'])).status_code == 200
 
 
-@pytest.mark.parametrize('action', ['list', 'save', 'select', 'delete', 'remove-password', 'test', 'environment', 'import-environment'])
+@pytest.mark.parametrize('action', ['list', 'save', 'select', 'delete', 'remove-password', 'test', 'diagnostic', 'environment', 'import-environment'])
 def test_all_config_operations_require_authorization(api_store, action):
     assert client(token='wrong').post('/api/connections/' + action, json={}).status_code == 401
     assert not api_store.root.exists()
@@ -436,3 +436,29 @@ def test_packaging_excludes_even_accidental_vault_copies(tmp_path):
     build.copy_backend(source, tmp_path / 'destination')
     assert (tmp_path / 'destination/__init__.py').is_file()
     assert not any(p.is_file() for p in (tmp_path / 'destination/accidental-copy').rglob('*'))
+
+
+def test_saved_metadata_diagnostic_keeps_password_on_server(api_store):
+    from app.schema_diagnostic import METADATA_SQL
+    profile = api_store.save(FIELDS, PASSWORD)
+    con = MagicMock(); cursor = con.cursor.return_value.__enter__.return_value
+    cursor.fetchall.return_value = [('WINT', 'PCPRODUT', 'CODPROD', 'NUMBER')]
+    with patch('oracledb.connect', return_value=con):
+        result = client().post('/api/connections/diagnostic', json=dict(id=profile['id'], revision=profile['revision'], confirm_environment='TESTE'))
+    assert result.status_code == 200 and PASSWORD not in result.text
+    assert result.json()['tabelas'][0]['proprietario'] == 'WINT'
+    assert [call.args[0] for call in cursor.execute.call_args_list] == ['SET TRANSACTION READ ONLY', METADATA_SQL]
+    assert api_store.active is None
+    con.close.assert_called_once(); con.commit.assert_not_called()
+
+
+def test_saved_metadata_diagnostic_requires_production_confirmation_and_hides_errors(api_store):
+    profile = api_store.save(FIELDS | dict(environment='PRODUCAO'), PASSWORD)
+    ref = dict(id=profile['id'], revision=profile['revision'])
+    with patch('app.connections_api.inspect_schema') as inspect:
+        assert client().post('/api/connections/diagnostic', json=ref).status_code == 409
+        inspect.assert_not_called()
+    with patch('app.connections_api.inspect_schema', side_effect=RuntimeError(PASSWORD)):
+        result = client().post('/api/connections/diagnostic', json=ref | dict(confirm_environment='PRODUCAO'))
+    assert result.status_code == 502 and PASSWORD not in result.text
+    assert client().post('/api/connections/diagnostic', json=ref | dict(sql='SELECT secrets')).status_code == 422
