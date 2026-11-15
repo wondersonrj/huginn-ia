@@ -168,3 +168,19 @@ def test_effective_active_version_prevents_downgrading_a_signed_update(migration
     (root / 'versions/0.4.0/version.json').write_text(json.dumps(dict(version='0.4.0', runtime_id='runtime', channel='teste')))
     (root / 'state/current.json').write_text('{"version":"0.4.0"}')
     with pytest.raises(m.MigrationError, match='downgrade_refused'): m.inspect(root, inv)
+
+
+def test_failure_fixture_only_breaks_the_versioned_entrypoint(tmp_path):
+    import zipfile
+    path = Path(__file__).resolve().parents[2] / 'packaging/windows/make_failure_fixture.py'
+    spec = importlib.util.spec_from_file_location('failure_fixture_test', path)
+    module = importlib.util.module_from_spec(spec); spec.loader.exec_module(module)
+    original = tmp_path / 'original.zip'; failed = tmp_path / 'failed.zip'
+    with zipfile.ZipFile(original, 'w') as archive:
+        archive.writestr('HUGINN-IA-Windows-x64/bootstrap.json', '{"version":"0.3.2"}')
+        archive.writestr('HUGINN-IA-Windows-x64/versions/0.3.2/server.py', '# healthy')
+        archive.writestr('HUGINN-IA-Windows-x64/runtime/Lib/http/server.py', '# standard library unchanged')
+    module.make(original, failed)
+    with zipfile.ZipFile(failed) as archive:
+        assert archive.read('HUGINN-IA-Windows-x64/versions/0.3.2/server.py') == b'raise SystemExit(42)\n'
+        assert archive.read('HUGINN-IA-Windows-x64/runtime/Lib/http/server.py') == b'# standard library unchanged'
