@@ -1,0 +1,38 @@
+{
+  "issue": 21,
+  "repository": "wondersonrj/huginn-ia",
+  "branch": "feature/issue-21-secure-connections",
+  "handoff": "Owner comment authorizes dedicated branch, Windows MVP, tests/docs/PR; no merge or release",
+  "architecture": {
+    "protection": "Windows DPAPI CurrentUser, UI_FORBIDDEN, per-user/installation/profile entropy",
+    "files": "Private LocalAppData directory: non-secret metadata JSON and separate binary DPAPI credential",
+    "selection": "Explicit process-local, not restored on reboot; query profile/revision pinning",
+    "fallback": "Existing environment only, explicit after managed catalog; no plaintext persistence fallback"
+  },
+  "linux_validation": {
+    "passed": 271,
+    "skipped": 2,
+    "production_ui_demo_api": "passed",
+    "native_dpapi": "not available on Linux",
+    "typescript_build": "passed",
+    "npm_production_audit_vulnerabilities": 0,
+    "actionlint": "1.7.12 passed"
+  },
+  "windows_validation": "Native DPAPI, independent-process restart, DACL and browser CRUD required in PR CI; final IDs/SHA in PR description",
+  "oracle_real_validated": false,
+  "customer_credentials_supplied": false,
+  "scope_preserved": [
+    "Token + loopback + Origin/Host",
+    "SET TRANSACTION READ ONLY",
+    "Metadata validation before catalog SELECT",
+    "Bound filters and pagination",
+    "No commits/SQL writes",
+    "No secrets in API/audit/export"
+  ],
+  "limitations": [
+    "DPAPI is not protection against the same Windows user, administrator or SYSTEM",
+    "No SSO/multiuser authorization or forensic secure erasure",
+    "Windows cross-user denial is tested with identity/key/entropy corruption fixtures; no second OS account is impersonated",
+    "No merge, release, production change or real Oracle test performed"
+  ]
+}

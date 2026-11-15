@@ -77,6 +77,50 @@ def run(package, python=None, browser_path=None):
                     page.unroute('**/api/winthor/produtos')
                     page.get_by_role('button', name='Buscar cadastros').click()
                     expect(table.get_by_role('row')).to_have_count(21)
+                    page.get_by_role('button', name='Carregar conexões salvas').click()
+                    if os.name == 'nt':
+                        def fill_profile(name='Perfil sintético'):
+                            for label, value in [('Nome da conexão', name), ('Host da conexão', 'synthetic.invalid'),
+                                    ('Porta da conexão', '1521'), ('Service Name da conexão', 'SYNTHETIC'),
+                                    ('Usuário da conexão', 'synthetic'), ('Schema WinThor', 'WINT'),
+                                    ('Nova senha da conexão', 'synthetic-password-never-oracle')]:
+                                page.get_by_label(label, exact=True).fill(value)
+                        fill_profile()
+                        page.get_by_role('button', name='Salvar conexão', exact=True).click()
+                        expect(page.get_by_label('Nova senha da conexão', exact=True)).to_have_value('')
+                        expect(page.get_by_role('button', name='Selecionar Perfil sintético', exact=True)).to_be_enabled()
+                        page.get_by_role('button', name='Selecionar Perfil sintético', exact=True).click()
+                        expect(page.get_by_text('Consultas direcionadas a: Perfil sintético — TESTE', exact=True)).to_be_visible()
+                        # Reload proves that the browser does not persist secrets or connection forms.
+                        page.reload()
+                        expect(page.get_by_label('Token de acesso local', exact=True)).to_have_value('')
+                        page.get_by_label('Token de acesso local', exact=True).fill('synthetic-browser-token-' + 'x' * 32)
+                        page.get_by_role('button', name='Carregar conexões salvas').click()
+                        expect(page.get_by_role('button', name='Editar Perfil sintético', exact=True)).to_be_visible()
+                        page.get_by_role('button', name='Editar Perfil sintético', exact=True).click()
+                        expect(page.get_by_label('Nova senha da conexão', exact=True)).to_have_value('')
+                        page.get_by_label('Ambiente da conexão', exact=True).select_option('PRODUCAO')
+                        page.get_by_label('Nova senha da conexão', exact=True).fill('replacement-synthetic-only')
+                        page.get_by_role('button', name='Salvar conexão', exact=True).click()
+                        expect(page.get_by_text('Consultas direcionadas a:', exact=False)).to_have_count(0)
+                        page.once('dialog', lambda dialog: dialog.dismiss())
+                        page.get_by_role('button', name='Selecionar Perfil sintético', exact=True).click()
+                        expect(page.get_by_text('Consultas direcionadas a:', exact=False)).to_have_count(0)
+                        page.once('dialog', lambda dialog: dialog.accept())
+                        page.get_by_role('button', name='Selecionar Perfil sintético', exact=True).click()
+                        expect(page.get_by_text('Consultas direcionadas a: Perfil sintético — PRODUÇÃO', exact=True)).to_be_visible()
+                        page.once('dialog', lambda dialog: dialog.accept())
+                        page.get_by_role('button', name='Remover senha de Perfil sintético', exact=True).click()
+                        expect(page.get_by_role('button', name='Selecionar Perfil sintético', exact=True)).to_be_disabled()
+                        page.once('dialog', lambda dialog: dialog.accept())
+                        page.get_by_role('button', name='Excluir Perfil sintético', exact=True).click()
+                        expect(page.get_by_role('button', name='Editar Perfil sintético', exact=True)).to_have_count(0)
+                        page.once('dialog', lambda dialog: dialog.accept())
+                        page.get_by_role('button', name='Usar configuração por ambiente', exact=True).click()
+                        expect(page.get_by_text('Origem: configuração por ambiente, destino não classificado.', exact=True)).to_be_visible()
+                        # No real Oracle operation is invoked for saved test profiles in this suite.
+                    else:
+                        expect(page.get_by_text('Proteção Windows indisponível neste sistema.', exact=False)).to_be_visible()
                     page.get_by_role('button', name='Encerrar acesso').click()
                     expect(page.get_by_label('Token de acesso local', exact=True)).to_have_value('')
                     expect(table).to_have_count(0)
@@ -141,7 +185,7 @@ def run(package, python=None, browser_path=None):
                     assert page.evaluate('document.documentElement.scrollWidth <= window.innerWidth')
                     assert page.evaluate('localStorage.length') == 0
                     assert not errors,errors
-                    print('PASS: authenticated catalog demo real API, products/suppliers, pagination, filters, empty/error/recovery, schema demo, logout, production panel, metadata owners/columns/missing, field validation, credential clearing, connection mocked, failure mocked, XML, updates disabled/enabled approval UI/reload (mocked), mobile, no JS errors')
+                    print('PASS: Windows saved-connection CRUD/reload/secret clearing/environment confirmation (native on Windows, no Oracle); authenticated catalog demo real API, products/suppliers, pagination, filters, empty/error/recovery, schema demo, logout, production panel, metadata owners/columns/missing, field validation, credential clearing, connection mocked, failure mocked, XML, updates disabled/enabled approval UI/reload (mocked), mobile, no JS errors')
                     browser.close()
             finally:
                 if (root/'state').exists():
@@ -150,6 +194,14 @@ def run(package, python=None, browser_path=None):
                     proc.wait(timeout=30)
                 except subprocess.TimeoutExpired:
                     proc.kill(); proc.wait()
+                if os.name == 'nt':
+                    import ctypes
+                    import hashlib
+                    import shutil
+                    buffer = ctypes.create_unicode_buffer(32768)
+                    if ctypes.windll.shell32.SHGetFolderPathW(None, 0x1c, None, 0, buffer) == 0:
+                        installation = hashlib.sha256(str(root.resolve()).casefold().encode()).hexdigest()
+                        shutil.rmtree(Path(buffer.value) / 'HUGINN' / 'Connections' / installation, ignore_errors=True)
 
 
 if __name__ == '__main__':

@@ -10,3 +10,6 @@ dist/
 *.private.pem
 *.key.pem
 signing-secrets/
+
+*.dpapi
+profiles.json

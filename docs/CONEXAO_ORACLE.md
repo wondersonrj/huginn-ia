@@ -69,3 +69,13 @@ real, sem comprová-la por código. O procedimento atual completo está em
 real pendente. A seção histórica “TOTVS Cloud será implementado” acima descrevia
 somente o escopo anterior ao novo fluxo; nesta versão usa-se o mesmo Thin quando
 a rede é autorizada. Não houve ensaio com Oracle de cliente nesta tarefa.
+
+## Perfis persistentes Windows — issue #21
+
+O [gerenciador de conexões salvas](CONEXOES_SALVAS.md) acrescenta senha DPAPI por
+usuário/instalação, metadados privados, edição/exclusão e seleção explícita.
+A configuração por ambiente acima continua como legado/migração, sem fallback
+automático quando um catálogo gerenciado exige seleção ou está corrompido.
+As consultas preservam schema validado, binds, SELECT-only e token local.
+O teste pontual do perfil não configura uma sessão permanente; após reiniciar,
+carregue a lista e selecione novamente sem reentrar a senha Oracle.

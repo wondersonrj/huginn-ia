@@ -74,3 +74,12 @@ Uma atualizacao habilitada pede aprovacao, reinicia e confirma a versao;
 falha restaura a versao anterior. Se aparecer recuperacao pendente, feche
 as instancias e abra novamente INICIAR_HUGINN.bat. Preserve versions/ e state/.
 Consulte docs/ATUALIZACOES_WINDOWS.md no repositorio para distribuicao segura.
+
+CONEXOES SALVAS (WINDOWS)
+Acesse Carregar conexoes salvas com o token local e cadastre um perfil.
+A senha fica protegida por DPAPI CurrentUser fora da pasta do aplicativo.
+Salvar nao seleciona e testar nao mantem sessao aberta. Reiniciar exige
+selecionar novamente, sem reentrar a senha Oracle. PRODUCAO exige confirmacao.
+Editar/excluir invalida a selecao. Nunca copie o cofre para suporte/backups
+do pacote. Veja docs/CONEXOES_SALVAS.md para permissao, migracao e recuperacao.
+Sem DPAPI nao ha persistencia de senha em texto puro.

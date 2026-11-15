@@ -222,3 +222,13 @@ O primeiro ensaio Linux precisou de venv porque o launcher usa -I e não herda
 as dependências Python da sessão. O navegador também detectou e levou à
 correção de rótulos acessíveis dos seletores. As execuções finais passaram.
 Não se guardam logs brutos ou registros de clientes como evidência.
+
+## Perfis persistentes Windows — issue #21
+
+O [gerenciador de conexões salvas](CONEXOES_SALVAS.md) acrescenta senha DPAPI por
+usuário/instalação, metadados privados, edição/exclusão e seleção explícita.
+A configuração por ambiente acima continua como legado/migração, sem fallback
+automático quando um catálogo gerenciado exige seleção ou está corrompido.
+As consultas preservam schema validado, binds, SELECT-only e token local.
+O teste pontual do perfil não configura uma sessão permanente; após reiniciar,
+carregue a lista e selecione novamente sem reentrar a senha Oracle.

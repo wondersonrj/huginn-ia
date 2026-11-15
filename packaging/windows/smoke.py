@@ -26,6 +26,8 @@ def smoke(package, interpreter=None):
         assert (root / 'runtime/vcruntime140.dll').is_file()
         assert (root / 'runtime/vcruntime140_1.dll').is_file()
         assert not list(root.rglob('.env'))
+        assert not list(root.rglob('*.dpapi'))
+        assert not list(root.rglob('profiles.json'))
         # Runtime pip includes public CA bundles, not database credentials.
         assert not list(root.rglob('*.key'))
         for module in ['oracledb', 'cryptography', 'pydantic_core', 'fastapi', 'uvicorn']:

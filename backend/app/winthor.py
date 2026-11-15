@@ -2,6 +2,7 @@
 from dataclasses import dataclass
 import os
 import re
+from app.connection_store import SelectionRequired, current_store
 from app.oracle_connector import OracleConfig, check_connection, connect_readonly
 
 SPECS = {
@@ -24,9 +25,16 @@ class Settings:
     mode: str
     owner: str | None = None
     oracle: OracleConfig | None = None
+    profile: dict | None = None
 
     @classmethod
-    def load(cls):
+    def load(cls, connection_id=None, revision=None):
+        store = current_store()
+        resolved = store.selected(connection_id, revision) if store else None
+        if resolved:
+            return cls('oracle', resolved.profile['owner'], resolved.config, resolved.profile)
+        if connection_id or revision:
+            raise SelectionRequired('Connection no longer selected')
         mode = os.environ.get('HUGINN_WINTHOR_MODE', 'demo')
         if mode == 'demo':
             return cls(mode)

@@ -85,3 +85,22 @@ pendente para conciliação/consultas adicionais.
 Changelog: #18 acrescenta o catálogo funcional, autenticação local, auditoria,
 validação do schema e testes de UI/API. O histórico e inventário da fábrica
 continuam vinculados à #10; não se confunde MVP demonstrado com produção aprovada.
+
+## Conexões persistentes Windows — issue #21
+
+[Instalação, primeira configuração, recuperação e limitações](CONEXOES_SALVAS.md).
+Implementação autorizada pelo comentário de encaminhamento da #21, em branch
+dedicada a partir da main. A escolha técnica é DPAPI CurrentUser com ACL privada
+por usuário/instalação, separando metadados e blob binário de senha, fora do
+pacote e dos backups do atualizador. Sem chave genérica ou fallback em texto puro.
+
+Cadastro não seleciona, teste não cria sessão persistente, reinício exige seleção
+explícita. PRODUÇÃO exige confirmação e é exibida distintamente. Revisões do
+perfil são verificadas também nas consultas; editar/excluir invalida seleção.
+O ambiente legado pode ser importado apenas por ação explícita, sem devolver a
+senha. Token local, controles loopback/Origin/Host, schema e binds da #18 ficam
+preservados. Testes Windows verificam DPAPI/ACL e reinício sem Oracle real.
+
+Registro issue → branch → PR e evidências finais constam na descrição do PR que
+referencia #21; [histórico de decisões](FABRICA_APLICACOES/HISTORICO_COMPLETO.md).
+Não houve merge, release, alteração de produção ou homologação em banco real.
