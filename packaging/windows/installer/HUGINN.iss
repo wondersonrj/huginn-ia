@@ -120,6 +120,7 @@ begin
     Result := 'Instalacao de outra familia/runtime/canal. A migracao foi recusada e os dados foram preservados. Consulte o suporte; nao e preciso reiniciar o Windows.';
   if (Status = 'identity_unconfirmed') or (Status = 'shutdown_refused') or (Status = 'shutdown_pending') then
     Result := 'A instancia ativa nao confirmou identidade/encerramento seguro. Use Encerrar HUGINN na propria interface e repita. Nenhum processo ou servico de terceiros sera finalizado.';
+  Result := Result + ' Codigo: ' + Status;
 end;
 
 procedure ReleaseMigrationLock();

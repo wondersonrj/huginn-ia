@@ -107,3 +107,43 @@ class DPAPI:
 
     def unprotect(self, value, entropy):
         return self._crypt(value, entropy, True)
+
+
+def process_sid(pid):
+    advapi = ctypes.WinDLL('advapi32', use_last_error=True)
+    kernel = ctypes.WinDLL('kernel32', use_last_error=True)
+    kernel.OpenProcess.argtypes = [wintypes.DWORD, wintypes.BOOL, wintypes.DWORD]
+    kernel.OpenProcess.restype = wintypes.HANDLE
+    kernel.CloseHandle.argtypes = [wintypes.HANDLE]
+    kernel.LocalFree.argtypes = [ctypes.c_void_p]
+    kernel.LocalFree.restype = ctypes.c_void_p
+    advapi.OpenProcessToken.argtypes = [wintypes.HANDLE, wintypes.DWORD, ctypes.POINTER(wintypes.HANDLE)]
+    advapi.GetTokenInformation.argtypes = [wintypes.HANDLE, ctypes.c_int, ctypes.c_void_p, wintypes.DWORD, ctypes.POINTER(wintypes.DWORD)]
+    advapi.ConvertSidToStringSidW.argtypes = [ctypes.c_void_p, ctypes.POINTER(ctypes.c_void_p)]
+    process = kernel.OpenProcess(0x1000, False, pid)
+    if not process:
+        return None
+    token = wintypes.HANDLE()
+    try:
+        if not advapi.OpenProcessToken(process, 8, ctypes.byref(token)):
+            return None
+        size = wintypes.DWORD()
+        advapi.GetTokenInformation(token, 1, None, 0, ctypes.byref(size))
+        if not 0 < size.value < 65536:
+            return None
+        buffer = ctypes.create_string_buffer(size.value)
+        if not advapi.GetTokenInformation(token, 1, buffer, size, ctypes.byref(size)):
+            return None
+        sid = ctypes.c_void_p.from_buffer(buffer).value
+        text = ctypes.c_void_p()
+        if not advapi.ConvertSidToStringSidW(sid, ctypes.byref(text)):
+            return None
+        try:
+            return ctypes.wstring_at(text)
+        finally:
+            kernel.LocalFree(text)
+    finally:
+        if token:
+            kernel.CloseHandle(token)
+        kernel.CloseHandle(process)
+

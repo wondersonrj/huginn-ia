@@ -20,7 +20,7 @@ import uuid
 from functools import lru_cache
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from maintenance_windows import DPAPI, local_app_data, private_permissions, windows_identity
+from maintenance_windows import DPAPI, local_app_data, private_permissions, windows_identity, process_sid
 
 windows_identity = lru_cache(maxsize=1)(windows_identity)
 
@@ -224,6 +224,50 @@ def lock_available(root):
             return False
 
 
+def native_wrappers_exited(root):
+    if os.name != 'nt': return True
+    import ctypes
+    from ctypes import wintypes
+    class Process(ctypes.Structure):
+        _fields_ = [('size', wintypes.DWORD), ('usage', wintypes.DWORD), ('pid', wintypes.DWORD),
+                    ('heap', ctypes.c_size_t), ('module', wintypes.DWORD), ('threads', wintypes.DWORD),
+                    ('parent', wintypes.DWORD), ('priority', wintypes.LONG), ('flags', wintypes.DWORD),
+                    ('exe', wintypes.WCHAR * 260)]
+    kernel = ctypes.WinDLL('kernel32', use_last_error=True)
+    kernel.CreateToolhelp32Snapshot.argtypes = [wintypes.DWORD, wintypes.DWORD]
+    kernel.CreateToolhelp32Snapshot.restype = wintypes.HANDLE
+    kernel.Process32FirstW.argtypes = [wintypes.HANDLE, ctypes.POINTER(Process)]
+    kernel.Process32NextW.argtypes = [wintypes.HANDLE, ctypes.POINTER(Process)]
+    kernel.OpenProcess.argtypes = [wintypes.DWORD, wintypes.BOOL, wintypes.DWORD]
+    kernel.OpenProcess.restype = wintypes.HANDLE
+    kernel.QueryFullProcessImageNameW.argtypes = [wintypes.HANDLE, wintypes.DWORD, wintypes.LPWSTR, ctypes.POINTER(wintypes.DWORD)]
+    kernel.WaitForSingleObject.argtypes = [wintypes.HANDLE, wintypes.DWORD]
+    kernel.CloseHandle.argtypes = [wintypes.HANDLE]
+    snapshot = kernel.CreateToolhelp32Snapshot(2, 0)
+    if snapshot in (None, ctypes.c_void_p(-1).value): return False
+    expected = os.path.normcase(str((root / 'HUGINN-IA.exe').resolve()))
+    try:
+        process = Process(); process.size = ctypes.sizeof(process)
+        valid = kernel.Process32FirstW(snapshot, ctypes.byref(process))
+        while valid:
+            if process.exe.casefold() == 'huginn-ia.exe':
+                handle = kernel.OpenProcess(0x1000 | 0x100000, False, process.pid)
+                if handle:
+                    try:
+                        buffer = ctypes.create_unicode_buffer(32768); size = wintypes.DWORD(len(buffer))
+                        if not kernel.QueryFullProcessImageNameW(handle, 0, buffer, ctypes.byref(size)): return False
+                        if os.path.normcase(str(Path(buffer.value).resolve())) == expected:
+                            # Read-only observation, never TerminateProcess. Path + SID, no PID from disk.
+                            if process_sid(process.pid) != windows_identity() or kernel.WaitForSingleObject(handle, 0) != 0:
+                                return False
+                    finally:
+                        kernel.CloseHandle(handle)
+            valid = kernel.Process32NextW(snapshot, ctypes.byref(process))
+        return True
+    finally:
+        kernel.CloseHandle(snapshot)
+
+
 def stop_owned(root):
     if lock_available(root):
         descriptor = root / 'state/instance.json'
@@ -284,10 +328,7 @@ def stop_owned(root):
                     connection.close()
                     time.sleep(.2)
                     continue
-                executable = root / 'HUGINN-IA.exe'
-                if executable.exists():
-                    with executable.open('r+b'): pass  # wait for our native wrapper to unmap; never terminate it
-                return
+                if native_wrappers_exited(root): return
             except OSError:
                 pass
         time.sleep(.2)
