@@ -29,7 +29,19 @@ def run(installer, upgrade=None):
         env['HUGINN_WINTHOR_MODE'] = 'demo'
         env['HUGINN_API_TOKEN'] = 'short'  # inherited invalid token must be overridden by DPAPI
         def install(path):
-            return subprocess.run([str(path), '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART', '/SP-', '/DIR=' + str(root)], env=env, capture_output=True, timeout=180)
+            trace = Path(temp) / 'setup-test.log'
+            result = None
+            try:
+                result = subprocess.run([str(path), '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART', '/SP-', '/LOG=' + str(trace), '/DIR=' + str(root)], env=env, timeout=180)
+                return result
+            finally:
+                if result is None or result.returncode != 0:
+                    if trace.exists():
+                        for line in trace.read_text(encoding='utf-8-sig', errors='replace').splitlines():
+                            if any(word in line for word in ('Exception', 'PrepareToInstall', 'Exit code', 'Error:', 'Last Error')):
+                                print('Synthetic Setup diagnostic: ' + line, flush=True)
+                    backup = root / '.installer-backup/journal.json'
+                    if backup.exists(): print('Synthetic Setup phase: ' + json.loads(backup.read_text())['phase'], flush=True)
         assert install(installer).returncode == 0
         assert (root / 'HUGINN-IA.exe').is_file() and (root / 'unins000.exe').is_file()
         assert (root / 'docs/INSTALACAO_WINDOWS.md').is_file()

@@ -128,7 +128,7 @@ begin
   Result := True;
   if CurPageID = wpSelectDir then begin
     Result := RunMaintenance('inspect');
-    if not Result then MsgBox(MigrationMessage(), mbError, MB_OK);
+    if not Result and not WizardSilent then MsgBox(MigrationMessage(), mbError, MB_OK);
   end;
 end;
 

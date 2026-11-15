@@ -29,7 +29,7 @@ def migration(tmp_path, monkeypatch):
     for name, content in {'bootstrap.json': json.dumps(original).encode(), 'launcher.py': b'old launcher', 'updater.py': b'old updater',
                           'runtime/python.exe': b'untouched runtime', 'state/current.json': b'{"version":"0.2.0"}',
                           'state/preferences.json': b'{"theme":"dark"}', 'customer.txt': b'never delete user data',
-                          'unins000.exe': b'old uninstaller'}.items():
+                          'versions/0.2.0/version.json': json.dumps(original).encode(), 'unins000.exe': b'old uninstaller'}.items():
         dest = root / name; dest.parent.mkdir(parents=True, exist_ok=True); dest.write_bytes(content)
     module.vault(root).mkdir(parents=True)
     for name, content in {'profiles.json': b'profile metadata', 'local-token.bin': b'ciphertext token', 'a'*32+'.dpapi': b'ciphertext password'}.items():
@@ -121,7 +121,7 @@ def test_symlinks_and_inventory_traversal_are_refused(migration):
 @pytest.mark.parametrize('forged', [True, False])
 def test_shutdown_requires_hmac_then_authenticated_session_never_a_pid(migration, monkeypatch, forged):
     m, root, inv, install = migration
-    (root / 'versions/0.2.0').mkdir(parents=True)
+    (root / 'versions/0.2.0').mkdir(parents=True, exist_ok=True)
     (root / 'versions/0.2.0/version.json').write_text('{"source_commit":"old-build"}')
     (root / 'state/instance.json').write_text('{"port":8123}')
     token = 'a' * 64
@@ -148,3 +148,21 @@ def test_shutdown_requires_hmac_then_authenticated_session_never_a_pid(migration
     else:
         m.stop_owned(root)
         assert [c.split('/')[-1] for c in calls[1:]] == ['local-session', 'local-stop']
+
+
+def test_preserved_uninstall_data_is_recognized_without_deleting_user_files(migration):
+    m, root, inv, install = migration
+    m.prepare(root, inv); install(); m.validated(root); m.commit(root)
+    (root / 'bootstrap.json').unlink()
+    (root / 'launcher.py').unlink()
+    assert m.inspect(root, inv)['kind'] == 'retained'
+    m.prepare(root, inv); install(); m.validated(root); m.commit(root)
+    assert (root / 'customer.txt').read_bytes() == b'never delete user data'
+
+
+def test_effective_active_version_prevents_downgrading_a_signed_update(migration):
+    m, root, inv, install = migration
+    (root / 'versions/0.4.0').mkdir()
+    (root / 'versions/0.4.0/version.json').write_text(json.dumps(dict(version='0.4.0', runtime_id='runtime', channel='teste')))
+    (root / 'state/current.json').write_text('{"version":"0.4.0"}')
+    with pytest.raises(m.MigrationError, match='downgrade_refused'): m.inspect(root, inv)

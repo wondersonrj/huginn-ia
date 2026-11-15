@@ -36,6 +36,10 @@ def safe(path):
     path = Path(path).absolute()
     if any(ord(c) < 32 for c in str(path)) or str(path).startswith('\\\\'):
         raise MigrationError('unsafe_path')
+    if os.name == 'nt' and path.anchor:
+        import ctypes
+        if ctypes.windll.kernel32.GetDriveTypeW(path.anchor) == 4:
+            raise MigrationError('unsafe_path')
     for part in (path, *path.parents):
         if part.exists() or part.is_symlink():
             info = part.lstat()
@@ -185,12 +189,20 @@ def inspect(root, inventory):
     if (cfg.get('runtime_id') != inventory['runtime_id'] or cfg.get('channel') != inventory['channel']
             or cfg.get('bootstrap_version') != 1 or not VERSION.fullmatch(cfg.get('version', ''))):
         raise MigrationError('incompatible_installation')
-    if tuple(map(int, cfg['version'].split('.'))) > tuple(map(int, inventory['version'].split('.'))):
+    active = cfg['version']
+    if (root / 'state/current.json').exists():
+        active = read_json(root / 'state/current.json')['version']
+        if not isinstance(active, str) or not VERSION.fullmatch(active):
+            raise MigrationError('incomplete_installation')
+        metadata = read_json(root / 'versions' / active / 'version.json')
+        if metadata.get('version') != active or metadata.get('runtime_id') != inventory['runtime_id'] or metadata.get('channel') != inventory['channel']:
+            raise MigrationError('incompatible_installation')
+    if tuple(map(int, active.split('.'))) > tuple(map(int, inventory['version'].split('.'))):
         raise MigrationError('downgrade_refused')
     for name in ('launcher.py', 'updater.py', 'runtime/python.exe'):
         if not safe(root / name).is_file():
             raise MigrationError('incomplete_installation')
-    return dict(kind='installed' if current else 'portable', previous=cfg['version'], target=inventory['version'])
+    return dict(kind='installed' if current else 'portable', previous=active, target=inventory['version'])
 
 
 def lock_available(root):
@@ -248,7 +260,14 @@ def stop_owned(root):
         with opener.open(request, timeout=3) as response:
             if response.status != 200: raise MigrationError('shutdown_refused')
     for _ in range(150):
-        if lock_available(root): return
+        if lock_available(root):
+            try:
+                executable = root / 'HUGINN-IA.exe'
+                if executable.exists():
+                    with executable.open('r+b'): pass  # wait for our native wrapper to unmap; never terminate it
+                return
+            except OSError:
+                pass
         time.sleep(.2)
     raise MigrationError('shutdown_pending')
 
@@ -326,7 +345,9 @@ def commit(root):
 
 def rollback(root):
     data = journal(root)
-    if data['phase'] == 'backing_up': return  # files have not been touched yet
+    if data['phase'] == 'backing_up':
+        data['phase'] = 'rolled_back'; write_journal(root, data)
+        return  # installed files have not been touched yet
     if data['phase'] == 'rolled_back': return
     if data['phase'] not in ('prepared', 'validated'): raise MigrationError('rollback_not_pending')
     # Verify ALL backup bytes before changing any installed file.
@@ -373,7 +394,11 @@ def main():
             atomic(args.report, ('[Migration]\nstatus=ok\n' + ''.join(f'{k}={v}\n' for k, v in report.items())).encode())
         return 0
     except Exception as exc:
-        code = str(exc) if isinstance(exc, MigrationError) else 'operation_refused'
+        if args.action == 'prepare':
+            try:
+                if journal(root)['phase'] == 'backing_up': rollback(root)
+            except Exception: pass
+        code = str(exc) if isinstance(exc, MigrationError) else ('identity_unconfirmed' if args.action == 'stop-owned' else 'operation_refused')
         if args.report:
             atomic(args.report, f'[Migration]\nstatus={code}\n'.encode())
         # Fixed public codes only. Never emit exception strings, credentials or driver data.
