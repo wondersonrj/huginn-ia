@@ -447,6 +447,10 @@ def rollback(root):
             contents[key] = content
     for key, entry in data['entries'].items():
         path = target(root, key)
+        # Setup never writes the live vault/preferences. An older launcher can run
+        # after a power loss, so newer user edits must not be overwritten on recovery.
+        if key.startswith('vault:') or key == 'file:state/preferences.json':
+            continue
         if entry:
             atomic(path, contents[key], key.startswith('vault:') or key.startswith('file:state/'))
         elif path.is_file():

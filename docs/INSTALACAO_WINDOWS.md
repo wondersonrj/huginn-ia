@@ -199,13 +199,15 @@ com ACL privada do usuário/SYSTEM. Guarda os binários que serão substituídos
 configurações/apontador, registro e atalhos, mais cópias dos blobs já criptografados
 e metadados do cofre. Não exporta senha/token em claro. Conserva somente o último
 backup reconhecido; uma pasta/arquivo desconhecido dentro desse espaço interrompe
-a rotação sem ser apagado. a migração seguinte prepara outro antes de alterar a instalação.
+a rotação sem ser apagado. A migração seguinte prepara outro antes de alterar a instalação.
 
 Todos os novos arquivos catalogados são verificados por SHA256 e a nova aplicação
 precisa confirmar sua versão HTTP em uma porta própria de teste. Somente então
 concluímos a transação. Falha de cópia/integridade/saúde restaura binários,
-apontador, registro, atalhos e dados anteriores, sem remover arquivos extras do
-usuário. É possível abrir novamente o HUGINN anterior pelo atalho após rollback.
+apontador, registro e atalhos anteriores, sem remover arquivos extras do
+usuário. O Setup nunca altera o cofre/preferências em uso e o rollback não
+sobrescreve edições de dados que o usuário possa ter feito após uma interrupção;
+as cópias criptografadas permanecem privadas para suporte. É possível abrir novamente o HUGINN anterior pelo atalho após rollback.
 
 Se faltar energia ou o Setup for interrompido, execute o Setup novamente **na
 mesma pasta/usuário**. Ele recupera a transação pendente antes de fazer nova cópia.

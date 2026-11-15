@@ -56,19 +56,21 @@ def test_upgrade_commits_only_after_health_and_preserves_private_bytes(migration
     assert (root / 'runtime/python.exe').read_bytes() == b'untouched runtime'
 
 
-def test_failure_restores_bootstrap_pointer_uninstaller_shortcut_and_vault(migration):
+def test_failure_restores_bootstrap_pointer_uninstaller_and_preserves_live_vault(migration):
     m, root, inv, install = migration
     shortcut = m.shortcuts()['menu']; shortcut.parent.mkdir(parents=True); shortcut.write_bytes(b'old shortcut')
     m.prepare(root, inv); install()
     (root / 'state/current.json').write_text('{"version":"0.3.1"}')
     shortcut.write_bytes(b'new shortcut')
-    (m.vault(root) / 'local-token.bin').write_bytes(b'bad change')
+    (m.vault(root) / 'local-token.bin').write_bytes(b'updated ciphertext token')
+    (root / 'state/preferences.json').write_text('{"theme":"new user preference"}')
     with pytest.raises(m.MigrationError, match='vault_changed'): m.verify_installed(root)
     m.rollback(root)
     assert (root / 'launcher.py').read_bytes() == b'old launcher'
     assert json.loads((root / 'state/current.json').read_text())['version'] == '0.2.0'
     assert shortcut.read_bytes() == b'old shortcut'
-    assert (m.vault(root) / 'local-token.bin').read_bytes() == b'ciphertext token'
+    assert (m.vault(root) / 'local-token.bin').read_bytes() == b'updated ciphertext token'
+    assert (root / 'state/preferences.json').read_text() == '{"theme":"new user preference"}'
     assert (root / 'unins000.exe').read_bytes() == b'old uninstaller'
     assert not (root / 'versions/0.3.1/server.py').exists()
     assert not m.pending(root)
