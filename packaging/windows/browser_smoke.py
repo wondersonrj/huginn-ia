@@ -132,6 +132,8 @@ def scenario_connections(page):
         expect(page.locator('.connection-bar').get_by_text('PRODUÇÃO',exact=True)).to_be_visible()
         assert 'synthetic.invalid' not in page.locator('body').inner_text()
         go(page,'configuracoes')
+        page.get_by_role('button',name='Carregar conexões salvas',exact=True).click()
+        expect(page.get_by_role('button',name='Remover senha de Perfil editado',exact=True)).to_be_enabled()
         page.once('dialog',lambda d:d.accept());page.get_by_role('button',name='Remover senha de Perfil editado',exact=True).click()
         expect(page.get_by_role('button',name='Selecionar Perfil editado',exact=True)).to_be_disabled()
         for name in ('Perfil editado','Destino produção'):
