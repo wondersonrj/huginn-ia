@@ -41,9 +41,19 @@ def build(package, destination):
                  and '__pycache__' not in p.parts}
         (payload / 'installer-inventory.json').write_text(json.dumps(dict(format=1, version=info['version'],
             runtime_id=cfg['runtime_id'], channel=cfg['channel'], source_commit=info['source_commit'], files=files)))
+        recipe = temp / 'installer.iss'
+        shutil.copy2(source / 'installer/HUGINN.iss', recipe)
+        runtime_delete = []
+        for path in sorted((payload / 'runtime').rglob('*')):
+            if path.is_file():
+                name = path.relative_to(payload).as_posix().replace('/', '\\')
+                if any(c in name for c in '"{}\r\n'):
+                    raise RuntimeError('Unsupported runtime filename')
+                runtime_delete.append('Type: files; Name: "{app}\\' + name + '"')
+        (temp / 'runtime-uninstall.iss').write_text('\n'.join(runtime_delete) + '\n', encoding='utf-8')
         subprocess.run([str(compiler), f'/DPayload={payload}', f'/DOutput={destination}',
             f'/DAppVersion={info["version"]}', f'/DSourceCommit={info["source_commit"][:12]}', f'/DRuntimeId={json.loads((payload / "bootstrap.json").read_text())["runtime_id"]}',
-            str(source / 'installer/HUGINN.iss')], check=True)
+            str(recipe)], check=True)
     installer = destination / 'HUGINN-IA-Setup.exe'
     digest = hashlib.sha256(installer.read_bytes()).hexdigest()
     (destination / 'HUGINN-IA-Setup.exe.sha256').write_text(f'{digest}  {installer.name}\n')

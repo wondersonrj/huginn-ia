@@ -51,6 +51,8 @@ def case(args):
         sentinel = sibling / 'HUGINN-IA-Windows-x64/customer.txt'; sentinel.write_text('portable user data')
         sibling_config = (sibling / 'HUGINN-IA-Windows-x64/bootstrap.json').read_bytes()
         (root / 'customer.txt').write_text('preserve user data')
+        (root / 'runtime/customer-extra.txt').write_text('preserve runtime extra')
+        (root / 'versions/customer-extra.txt').write_text('preserve versions extra')
         (root / 'state').mkdir(exist_ok=True)
         (root / 'state/preferences.json').write_text('{"theme":"custom"}')
         class Foreign(BaseHTTPRequestHandler):
@@ -172,6 +174,8 @@ def case(args):
                 uninstall = Path(registration()['UninstallString'].strip('"'))
                 assert subprocess.run([str(uninstall),'/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART','/REMOVEDATA=1','/_?='+str(root)], env=env, timeout=120).returncode == 0
                 assert not vault.exists() and not (root / '.installer-backup').exists()
+                assert (root / 'runtime/customer-extra.txt').read_text() == 'preserve runtime extra'
+                assert (root / 'versions/customer-extra.txt').read_text() == 'preserve versions extra'
                 assert (root / 'customer.txt').read_text() == 'preserve user data'
                 with urllib.request.urlopen('http://127.0.0.1:8000') as response: assert response.read() == b'FOREIGN-SERVICE'
                 browser.close()

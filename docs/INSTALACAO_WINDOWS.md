@@ -233,9 +233,11 @@ Na desinstalação final, **manter dados** continua sendo o padrão. Mantém cof
 preferências e backup privado para reinstalar na mesma pasta/usuário. O Setup
 reconhece esse estado mesmo que só tenham restado configurações, cache e arquivos
 do usuário. Remover dados é uma decisão explícita e remove também o backup privado.
-O desinstalador usa os arquivos catalogados pelo Inno: não faz mais remoção
+O novo Setup substitui o catálogo antigo de uninstall para não herdar ações
+recursivas das versões antigas. O desinstalador usa os arquivos catalogados pelo
+Inno e uma lista fixa dos arquivos de runtime do pacote: não faz mais remoção
 recursiva de runtime/versions, evitando apagar arquivos extras do usuário. Pastas,
-cache Python e arquivos não catalogados podem permanecer; não são outra instalação
+cache Python, payloads anteriores de recuperação e arquivos não catalogados podem permanecer; não são outra instalação
 ativa. A opção de remover dados nunca apaga o Oracle ou documentos extras.
 
 ### Validação

@@ -22,6 +22,8 @@ UsePreviousTasks=yes
 DisableDirPage=no
 DefaultGroupName=HUGINN IA
 PrivilegesRequired=lowest
+UninstallLogMode=overwrite
+SetupMutex=Local\HUGINN-IA-Setup
 ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
 MinVersion=10.0.17763
@@ -59,6 +61,10 @@ Name: "{autodesktop}\HUGINN IA"; Filename: "{app}\HUGINN-IA.exe"; WorkingDir: "{
 
 [Run]
 Filename: "{app}\HUGINN-IA.exe"; Description: "Abrir HUGINN IA e configurar a conexao"; Flags: nowait postinstall skipifsilent
+
+[UninstallDelete]
+; Fixed files from this package only. Never recursively delete runtime/versions.
+#include "runtime-uninstall.iss"
 
 [Code]
 const
