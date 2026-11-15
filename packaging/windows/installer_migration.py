@@ -290,8 +290,9 @@ def native_wrappers_exited(root):
                         if os.path.normcase(str(Path(buffer.value).resolve())) == expected:
                             # Read-only observation, never TerminateProcess. Path + SID, no PID from disk.
                             if kernel.WaitForSingleObject(handle, 0) != 0:
-                                # Unknown SID is also a refusal; never interact with another user.
-                                process_sid(process.pid) == windows_identity()
+                                sid = process_sid(process.pid)
+                                if sid is not None and sid != windows_identity():
+                                    raise MigrationError('foreign_wrapper')
                                 return False
                     finally:
                         kernel.CloseHandle(handle)
