@@ -158,6 +158,9 @@ def inspect(root, inventory):
         path = relative(name)
         if path.parts[0] in {'runtime', 'state', BACKUP} or not re.fullmatch('[0-9a-f]{64}', digest):
             raise MigrationError('invalid_inventory')
+    current = registered()
+    if current and identity(current) != identity(root):
+        raise MigrationError('use_registered_directory')
     recovery = root / BACKUP / 'journal.json'
     if recovery.exists():
         data = journal(root)
@@ -168,6 +171,11 @@ def inspect(root, inventory):
         raise MigrationError('use_registered_directory')
     cfg_path = root / 'bootstrap.json'
     if not cfg_path.exists():
+        if recovery.exists():
+            data = journal(root)
+            if data['payload']['runtime_id'] != inventory['runtime_id'] or data['payload']['channel'] != inventory['channel']:
+                raise MigrationError('incompatible_installation')
+            return dict(kind='retained', previous=data['payload']['version'], target=inventory['version'])
         if root.exists() and any(p.name not in {'state', BACKUP} for p in root.iterdir()):
             raise MigrationError('unrecognized_directory')
         return dict(kind='fresh', previous='nenhuma', target=inventory['version'])
@@ -271,6 +279,7 @@ def prepare(root, inventory):
     keys += ['file:' + name for name in ('state/current.json', 'state/preferences.json', 'state/status.json', 'state/installer-backup.json', 'state/backup.json', 'state/instance.json', 'installer-inventory.json')]
     if root.exists():
         keys += ['file:' + p.name for p in root.iterdir() if re.fullmatch(r'unins\d{3}\.(exe|dat|msg)', p.name)]
+    keys += [f'file:unins{i:03d}.{suffix}' for i in range(20) for suffix in ('exe', 'dat', 'msg')]
     keys += ['shortcut:' + name for name in shortcuts()]
     v = vault(root)
     if v.exists():

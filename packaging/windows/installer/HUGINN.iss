@@ -174,7 +174,7 @@ end;
 procedure DeinitializeSetup();
 begin
   if Prepared and not Successful then
-    if not RunMaintenance('rollback') then
+    if not RunMaintenance('rollback') and not WizardSilent then
       MsgBox('Recuperacao pendente. Preserve a pasta e execute novamente o Setup. Nao reinicie o Windows nem apague o cofre.', mbError, MB_OK);
   ReleaseMigrationLock();
 end;
