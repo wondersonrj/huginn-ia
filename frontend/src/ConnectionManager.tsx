@@ -5,6 +5,7 @@ type Fields = { name: string; environment: 'TESTE' | 'PRODUCAO'; host: string; p
 const empty: Fields = { name: '', environment: 'TESTE', host: '', port: '1521', service: '', user: '', owner: '' }
 
 export function ConnectionManager({ token, onChange, automatic = false }: { token: string; onChange: (connection: Connection | null) => void; automatic?: boolean }) {
+  const [metadata, setMetadata] = useState<{aviso:string;tabelas:{nome:string;proprietario:string|null;visivel:boolean;colunas:{coluna:string;tipo:string}[]}[]}|null>(null)
   const [profiles, setProfiles] = useState<Connection[]>([])
   const [supported, setSupported] = useState<boolean | null>(null)
   const [active, setActive] = useState<Connection | null>(null)
@@ -20,10 +21,10 @@ export function ConnectionManager({ token, onChange, automatic = false }: { toke
   useEffect(() => {
     epoch.current += 1; controller.current?.abort()
     setProfiles([]); setSupported(null); setActive(null); setSource(''); setFields(empty)
-    setEditing(null); setPassword(''); setMessage(''); setError(''); setBusy(false)
+    setEditing(null); setPassword(''); setMessage(''); setError(''); setBusy(false); setMetadata(null)
   }, [token])
   useEffect(() => { if (automatic) void execute('list') }, [automatic])
-  useEffect(() => () => { controller.current?.abort() }, [])
+  useEffect(() => () => { epoch.current++; controller.current?.abort() }, [])
 
   async function execute(action: string, body: object = {}) {
     const id = ++epoch.current
@@ -32,7 +33,7 @@ export function ConnectionManager({ token, onChange, automatic = false }: { toke
     controller.current = operation
     const signal = operation.signal
     const timer = window.setTimeout(() => operation.abort(), 30000)
-    setBusy(true); setError(''); setMessage('')
+    setBusy(true); setError(''); setMessage(''); setMetadata(null)
     async function post(path: string, data: object) {
       const response = await fetch(`/api/connections/${path}`, { method: 'POST',
         headers: { 'Content-Type': 'application/json', ...(automatic ? {} : { Authorization: `Bearer ${token}` }) },
@@ -45,6 +46,7 @@ export function ConnectionManager({ token, onChange, automatic = false }: { toke
       const result = await post(action, body)
       const listing = action === 'list' ? result : await post('list', {})
       if (id !== epoch.current) return
+      if (action === 'diagnostic') setMetadata(result)
       setProfiles(listing.profiles); setSupported(listing.supported); setActive(listing.active); setSource(listing.source)
       onChange(listing.active)
       if (action === 'save' || action === 'import-environment') { setEditing(null); setFields(empty) }
@@ -65,12 +67,33 @@ export function ConnectionManager({ token, onChange, automatic = false }: { toke
     }
   }
 
+  async function point(action: 'testar' | 'diagnostico') {
+    if (!fields.host.trim() || !fields.service.trim() || !fields.user.trim() || !password || !Number.isInteger(Number(fields.port)) || Number(fields.port)<1 || Number(fields.port)>65535) {
+      setError('Informe host, porta, serviço, usuário e senha para o teste pontual.'); return
+    }
+    const id=++epoch.current; controller.current?.abort()
+    const operation=new AbortController();controller.current=operation
+    const timer=window.setTimeout(()=>operation.abort(),20000)
+    setBusy(true);setError('');setMessage('');setMetadata(null)
+    try {
+      const response=await fetch('/api/oracle/'+action,{method:'POST',headers:{'Content-Type':'application/json',...(automatic?{}:{Authorization:`Bearer ${token}`})},body:JSON.stringify({host:fields.host.trim(),port:Number(fields.port),service:fields.service.trim(),user:fields.user.trim(),password}),signal:operation.signal,cache:'no-store'})
+      const data=await response.json()
+      if(!response.ok)throw new Error(typeof data.detail==='string'?data.detail:'Diagnóstico pontual indisponível.')
+      if(id!==epoch.current)return
+      if(action==='diagnostico')setMetadata(data)
+      else if(!data.conectado)throw new Error('Oracle não confirmou o teste de leitura.')
+      setMessage(action==='diagnostico'?'Diagnóstico pontual concluído sem salvar credenciais.':'Conexão pontual confirmada em somente leitura. Nenhum perfil ou destino foi alterado.')
+      onChange(active)
+    }catch(e){if(id===epoch.current)setError(e instanceof Error&&e.name==='AbortError'?'Tempo de teste excedido. Confira disponibilidade e tente novamente.':e instanceof Error?e.message:'Teste indisponível.')}
+    finally{window.clearTimeout(timer);if(id===epoch.current){setBusy(false);setPassword('')}}
+  }
+
   function ref(profile: Connection) { return { id: profile.id, revision: profile.revision } }
   function confirmed(profile: Connection) {
     return profile.environment !== 'PRODUCAO' || window.confirm(`Confirmar destino PRODUÇÃO: ${profile.name}? Somente leitura. Não é autorização de release ou escrita no ERP.`)
   }
   function edit(profile: Connection) {
-    setEditing(profile); setPassword(''); setFields({ name: profile.name, environment: profile.environment,
+    setMetadata(null); setEditing(profile); setPassword(''); setFields({ name: profile.name, environment: profile.environment,
       host: profile.host, port: String(profile.port), service: profile.service, user: profile.user, owner: profile.owner })
     setError(''); setMessage('Senha nunca é carregada no formulário. Deixe em branco para manter a salva.')
   }
@@ -80,14 +103,14 @@ export function ConnectionManager({ token, onChange, automatic = false }: { toke
     <p>Windows: senha protegida para este usuário e instalação. Seleção obrigatória após reiniciar. O teste é pontual e não mantém conexão aberta.</p>
     <button className="oracle-test" type="button" disabled={busy || (!automatic && token.length < 32)} onClick={() => { void execute('list') }}>Carregar conexões salvas</button>
     {supported === false && <p className="notice">Proteção Windows indisponível neste sistema. Nenhuma senha será persistida; use a configuração local por ambiente.</p>}
-    {supported && <>
+    {supported !== null && <>
       <p className={active?.environment === 'PRODUCAO' ? 'production-destination' : 'notice'} role="status">
         {active ? `Destino selecionado: ${active.name} — ${active.environment === 'PRODUCAO' ? 'PRODUÇÃO' : 'TESTE'} (sem sessão permanente)`
           : source === 'environment' ? 'Origem: configuração por ambiente, destino não classificado.' : 'Desconectado: selecione explicitamente uma conexão salva.'}
       </p>
       <div className="saved-connections">{profiles.map(profile => <article key={profile.id} className={profile.environment === 'PRODUCAO' ? 'saved-profile production-destination' : 'saved-profile'}>
         <h4>{profile.name} <span>{profile.environment === 'PRODUCAO' ? 'PRODUÇÃO' : 'TESTE'}</span></h4>
-        <p>{profile.host}:{profile.port} · {profile.service} · {profile.user} · Schema {profile.owner}</p>
+        <details className="profile-details"><summary>Detalhes técnicos do perfil</summary><p>{profile.host}:{profile.port} · {profile.service} · {profile.user} · Schema {profile.owner}</p><button className="button quiet" type="button" disabled={busy || !profile.password_saved} onClick={() => { if (confirmed(profile)) void execute('diagnostic', { ...ref(profile), confirm_environment: profile.environment }) }}>Metadados ampliados de {profile.name}</button><p>Diagnóstico pontual das sete tabelas legadas. Não seleciona o destino e não devolve a senha.</p></details>
         <p>{profile.password_saved ? 'Senha armazenada com proteção Windows; não exibida.' : 'Senha ausente: informe uma nova antes de selecionar.'}</p>
         <p>{profile.last_test ? `${profile.last_test.ok ? 'Último teste pontual confirmado' : 'Último teste falhou'}: ${new Date(profile.last_test.checked_at).toLocaleString()}` : 'Conectividade não testada nesta sessão.'}</p>
         <div className="catalog-actions">
@@ -98,28 +121,33 @@ export function ConnectionManager({ token, onChange, automatic = false }: { toke
           <button className="oracle-test" type="button" disabled={busy} onClick={() => { if (window.confirm(`Excluir ${profile.name} e sua senha salva? Nenhum dado Oracle será alterado.`)) void execute('delete', ref(profile)) }}>Excluir {profile.name}</button>
         </div>
       </article>)}</div>
-      <form onSubmit={(e: FormEvent) => { e.preventDefault(); void execute('save', {
+      <form onChange={()=>setMetadata(null)} onSubmit={(e: FormEvent) => { e.preventDefault(); if (!supported) { void point('testar'); return } void execute('save', {
         ...fields, port: Number(fields.port), ...(editing ? ref(editing) : {}), ...(password ? { password } : {}),
       }) }}>
-        <h4>{editing ? 'Editar conexão salva' : 'Cadastrar conexão Oracle'}</h4>
+        <h4>{editing ? 'Editar conexão salva' : supported ? 'Cadastrar conexão Oracle' : 'Diagnóstico pontual Oracle'}</h4>
         <fieldset className="oracle-fields" disabled={busy}>
-          <label>Nome da conexão<input required maxLength={80} value={fields.name} onChange={e => setFields({ ...fields, name: e.target.value })} autoComplete="off" /></label>
+          <label>Nome da conexão<input required={!!supported} maxLength={80} value={fields.name} onChange={e => setFields({ ...fields, name: e.target.value })} autoComplete="off" /></label>
           <label>Ambiente da conexão<select aria-label="Ambiente da conexão" value={fields.environment} onChange={e => setFields({ ...fields, environment: e.target.value as Fields['environment'] })}><option value="TESTE">TESTE</option><option value="PRODUCAO">PRODUÇÃO</option></select></label>
           <label>Host da conexão<input required maxLength={253} value={fields.host} onChange={e => setFields({ ...fields, host: e.target.value })} autoComplete="off" /></label>
           <label>Porta da conexão<input required type="number" min={1} max={65535} value={fields.port} onChange={e => setFields({ ...fields, port: e.target.value })} /></label>
           <label>Service Name da conexão<input required maxLength={255} value={fields.service} onChange={e => setFields({ ...fields, service: e.target.value })} autoComplete="off" /></label>
           <label>Usuário da conexão<input required maxLength={128} value={fields.user} onChange={e => setFields({ ...fields, user: e.target.value })} autoComplete="off" /></label>
-          <label>Schema WinThor<input required pattern="[A-Z][A-Z0-9_]{0,29}" maxLength={30} value={fields.owner} onChange={e => setFields({ ...fields, owner: e.target.value })} autoComplete="off" /></label>
-          <label>Nova senha da conexão<input type="password" maxLength={1024} value={password} onChange={e => setPassword(e.target.value)} autoComplete="off" /></label>
+          <label>Schema WinThor<input required={!!supported} pattern="[A-Z][A-Z0-9_]{0,29}" maxLength={30} value={fields.owner} onChange={e => setFields({ ...fields, owner: e.target.value })} autoComplete="off" /></label>
+          <label>Nova senha da conexão<input required={!supported} type="password" maxLength={1024} value={password} onChange={e => setPassword(e.target.value)} autoComplete="off" /></label>
         </fieldset>
-        <div className="catalog-actions"><button className="oracle-test" disabled={busy} type="submit">Salvar conexão</button>
+        <div className="catalog-actions"><button className="oracle-test" disabled={busy} type="submit">{supported?'Salvar conexão':'Testar dados sem salvar'}</button>
           <button className="oracle-test" type="button" disabled={busy} onClick={() => { setEditing(null); setFields(empty); setPassword('') }}>Limpar edição</button></div>
-        <p>Senha em branco mantém a existente; em cadastro novo, salva apenas os metadados. Editar invalida a seleção e exige nova confirmação.</p>
+        <p>{supported?'Senha em branco mantém a existente; em cadastro novo, salva apenas os metadados. Editar invalida a seleção e exige nova confirmação.':'Sem cofre Windows, o teste é pontual e não persiste credenciais. A senha é apagada após cada tentativa.'}</p>
+        <details className="advanced-options"><summary>Diagnóstico pontual com os campos acima</summary><p>Opcional. Usa esta mesma senha, limpa após cada tentativa, sem salvar ou selecionar destino.</p><div className="button-row">
+          {supported && <button className="button quiet" type="button" disabled={busy} onClick={()=>void point('testar')}>Testar dados sem salvar</button>}
+          <button className="button quiet" type="button" disabled={busy} onClick={()=>void point('diagnostico')}>Diagnosticar dados sem salvar</button>
+        </div></details>
       </form>
-      <div className="catalog-actions">
+      {supported && <details className="advanced-options"><summary>Opções avançadas de migração</summary><div className="catalog-actions">
         <button className="oracle-test" type="button" disabled={busy} onClick={() => { if (window.confirm('Usar explicitamente a configuração por ambiente deste servidor? O destino não é classificado automaticamente como TESTE.')) void execute('environment', { confirm: 'USAR CONFIGURACAO DO AMBIENTE' }) }}>Usar configuração por ambiente</button>
         <button className="oracle-test" type="button" disabled={busy || !fields.name} onClick={() => { if (window.confirm('Salvar a configuração Oracle atual do servidor neste usuário Windows? Isso não seleciona a conexão.')) void execute('import-environment', { name: fields.name, environment: fields.environment }) }}>Salvar configuração do ambiente</button>
-      </div>
+      </div></details>}
+      {metadata && <section className="metadata-report"><h4>Metadados ampliados</h4><p>{metadata.aviso}</p>{metadata.tabelas.map(t=><details key={`${t.proprietario}.${t.nome}`}><summary>{t.proprietario ? `${t.proprietario}.${t.nome}` : t.nome} — {t.visivel ? `${t.colunas.length} colunas visíveis` : 'não visível'}</summary><ul>{t.colunas.map((c,i)=><li key={i}>{c.coluna} ({c.tipo})</li>)}</ul></details>)}</section>}
     </>}
     <div aria-live="polite">{busy && <p role="status">Aguarde a operação local…</p>}{message && <p role="status">{message}</p>}{error && <p role="alert" className="error">{error}</p>}</div>
   </section>

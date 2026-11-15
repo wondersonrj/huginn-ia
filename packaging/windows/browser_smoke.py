@@ -12,6 +12,206 @@ import zipfile
 from playwright.sync_api import sync_playwright, expect
 
 
+TOKEN = 'synthetic-browser-token-' + 'x' * 32
+
+
+def scenario_navigation(page):
+    from ui_flow import go, LABELS
+    expect(page.get_by_role('heading', name='Visão geral', exact=True, level=1)).to_be_visible()
+    for module in LABELS:
+        go(page, module)
+    go(page, 'visao-geral')
+    expect(page.get_by_role('heading', name='Central de Conexões', exact=True)).to_have_count(0)
+    assert page.get_by_label('Host da conexão', exact=True).count() == 0
+    page.set_viewport_size(dict(width=390, height=844))
+    for module in ('produtos','nfe','configuracoes','validacao','visao-geral'):
+        go(page, module)
+        assert page.evaluate('document.documentElement.scrollWidth <= innerWidth')
+    page.set_viewport_size(dict(width=1440, height=1000))
+    page.keyboard.press('Tab')
+    assert page.evaluate('document.activeElement !== document.body')
+
+
+def scenario_access(page):
+    from ui_flow import go
+    go(page, 'configuracoes')
+    expect(page.get_by_role('heading', name='Conexão Oracle direta', exact=True)).to_have_count(0)
+    expect(page.get_by_label('Host da conexão', exact=True)).to_have_count(0)  # list not yet loaded in legacy mode
+    page.get_by_label('Token de acesso local', exact=True).fill('invalid')
+    go(page, 'produtos')
+    page.get_by_role('button', name='Verificar conexão WinThor', exact=True).click()
+    expect(page.get_by_role('alert')).to_be_visible()
+    go(page, 'configuracoes')
+    page.get_by_label('Token de acesso local', exact=True).fill(TOKEN)
+    page.get_by_role('button', name='Verificar conexão WinThor', exact=True).click()
+    expect(page.get_by_text('Simulação ativa: dados fictícios, sem conexão Oracle.', exact=True)).to_be_visible()
+    assert page.evaluate('localStorage.length + sessionStorage.length') == 0
+
+
+def scenario_catalog_search(page):
+    from ui_flow import go
+    go(page, 'produtos')
+    page.get_by_role('button', name='Buscar cadastros', exact=True).click()
+    table = page.get_by_role('table', name='Cadastros WinThor')
+    expect(table.get_by_role('row')).to_have_count(21)
+    expect(table.get_by_text('Produto demonstrativo 001', exact=True)).to_be_visible()
+    page.get_by_role('button', name='Próxima página', exact=True).click()
+    expect(table.get_by_text('Produto demonstrativo 021', exact=True)).to_be_visible()
+    page.get_by_role('button', name='Página anterior', exact=True).click()
+    expect(table.get_by_text('Produto demonstrativo 001', exact=True)).to_be_visible()
+    page.get_by_label('Nome ou descrição', exact=True).fill('055')
+    page.get_by_role('button', name='Buscar cadastros', exact=True).click()
+    expect(table.get_by_role('row')).to_have_count(2)
+    go(page, 'fornecedores')
+    page.get_by_label('Código do cadastro', exact=True).fill('3')
+    page.get_by_role('button', name='Buscar cadastros', exact=True).click()
+    expect(table.get_by_text('Fornecedor demonstrativo 003', exact=True)).to_be_visible()
+    page.get_by_label('Código do cadastro', exact=True).fill('99999')
+    page.get_by_role('button', name='Buscar cadastros', exact=True).click()
+    expect(page.get_by_text('Nenhum cadastro encontrado para os filtros informados.', exact=True)).to_be_visible()
+    go(page, 'produtos')
+    page.route('**/api/winthor/produtos', lambda route: route.fulfill(status=502,json=dict(detail='Consulta indisponível simulada')))
+    page.get_by_role('button', name='Buscar cadastros', exact=True).click()
+    expect(page.get_by_role('alert')).to_have_text('Consulta indisponível simulada')
+    page.unroute('**/api/winthor/produtos')
+    page.get_by_role('button', name='Buscar cadastros', exact=True).click()
+    expect(table.get_by_role('row')).to_have_count(21)
+
+
+def scenario_schema(page):
+    from ui_flow import go
+    go(page, 'suporte')
+    page.get_by_role('button', name='Diagnosticar estrutura', exact=True).click()
+    expect(page.get_by_text('Estrutura simulada. Nenhuma coluna foi confirmada em Oracle real.', exact=True)).to_be_visible()
+
+
+def scenario_connections(page):
+    from ui_flow import go
+    go(page, 'configuracoes')
+    page.get_by_role('button', name='Carregar conexões salvas', exact=True).click()
+    if os.name != 'nt':
+        expect(page.get_by_text('Proteção Windows indisponível neste sistema.', exact=False)).to_be_visible()
+    else:
+        def fill(name='Perfil sintético'):
+            for label,value in [('Nome da conexão',name),('Host da conexão','synthetic.invalid'),('Porta da conexão','1521'),('Service Name da conexão','SYNTHETIC'),('Usuário da conexão','synthetic'),('Schema WinThor','WINT'),('Nova senha da conexão','synthetic-browser-password')]:
+                page.get_by_label(label,exact=True).fill(value)
+        fill();page.get_by_role('button',name='Salvar conexão',exact=True).click()
+        expect(page.get_by_role('button',name='Editar Perfil sintético',exact=True)).to_be_visible()
+        expect(page.get_by_label('Nova senha da conexão',exact=True)).to_have_value('')
+        page.get_by_role('button',name='Editar Perfil sintético',exact=True).click()
+        page.get_by_label('Nome da conexão',exact=True).fill('Perfil editado')
+        page.get_by_role('button',name='Salvar conexão',exact=True).click()
+        expect(page.get_by_role('button',name='Selecionar Perfil editado',exact=True)).to_be_enabled()
+        page.get_by_role('button',name='Selecionar Perfil editado',exact=True).click()
+        expect(page.get_by_text('Destino selecionado: Perfil editado',exact=False)).to_be_visible()
+        # All Oracle success/failure calls in this browser scenario are fixtures, never a real host.
+        page.route('**/api/connections/test',lambda route:route.fulfill(status=200,json=dict(conectado=True,mensagem='DUAL sintético confirmado')))
+        page.get_by_role('button',name='Testar Perfil editado',exact=True).click()
+        expect(page.get_by_text('DUAL sintético confirmado',exact=True)).to_be_visible()
+        page.unroute('**/api/connections/test')
+        page.route('**/api/connections/diagnostic',lambda route:route.fulfill(status=200,json=dict(aviso='Metadados sintéticos sem credenciais',tabelas=[dict(nome='PCPRODUT',proprietario='A',visivel=True,colunas=[dict(coluna='CODPROD',tipo='NUMBER')]),dict(nome='PCPRODUT',proprietario='B',visivel=True,colunas=[dict(coluna='DESCRICAO',tipo='VARCHAR2')])])) )
+        page.locator('.saved-profile').get_by_text('Detalhes técnicos do perfil',exact=True).click()
+        page.get_by_role('button',name='Metadados ampliados de Perfil editado',exact=True).click()
+        expect(page.get_by_text('Metadados sintéticos sem credenciais',exact=True)).to_be_visible()
+        expect(page.locator('.metadata-report summary')).to_have_count(2)
+        page.unroute('**/api/connections/diagnostic')
+        page.get_by_role('button',name='Limpar edição',exact=True).click()
+        fill('Destino produção')
+        page.get_by_label('Ambiente da conexão',exact=True).select_option('PRODUCAO')
+        page.get_by_role('button',name='Salvar conexão',exact=True).click()
+        page.once('dialog',lambda d:d.dismiss());page.get_by_role('button',name='Selecionar Destino produção',exact=True).click()
+        expect(page.get_by_text('Destino selecionado: Perfil editado',exact=False)).to_be_visible()
+        page.once('dialog',lambda d:d.accept());page.get_by_role('button',name='Selecionar Destino produção',exact=True).click()
+        expect(page.get_by_text('Destino selecionado: Destino produção',exact=False)).to_be_visible()
+        go(page,'visao-geral')
+        expect(page.locator('.connection-bar').get_by_text('PRODUÇÃO',exact=True)).to_be_visible()
+        assert 'synthetic.invalid' not in page.locator('body').inner_text()
+        go(page,'configuracoes')
+        page.once('dialog',lambda d:d.accept());page.get_by_role('button',name='Remover senha de Perfil editado',exact=True).click()
+        expect(page.get_by_role('button',name='Selecionar Perfil editado',exact=True)).to_be_disabled()
+        for name in ('Perfil editado','Destino produção'):
+            page.once('dialog',lambda d:d.accept());page.get_by_role('button',name='Excluir '+name,exact=True).click()
+            expect(page.get_by_role('button',name='Editar '+name,exact=True)).to_have_count(0)
+        page.get_by_text('Opções avançadas de migração',exact=True).click()
+        page.once('dialog',lambda d:d.accept());page.get_by_role('button',name='Usar configuração por ambiente',exact=True).click()
+        expect(page.get_by_text('Origem: configuração por ambiente',exact=False)).to_be_visible()
+    # Ad-hoc legacy diagnosis is preserved in the SAME Central form, no second password flow.
+    for label,value in [('Host da conexão','synthetic.invalid'),('Service Name da conexão','SYNTHETIC'),('Usuário da conexão','synthetic'),('Nova senha da conexão','synthetic-browser-password')]:
+        page.get_by_label(label,exact=True).fill(value)
+    page.get_by_text('Diagnóstico pontual com os campos acima',exact=True).click()
+    calls=[]
+    page.route('**/api/oracle/testar',lambda route:(calls.append(route.request.post_data_json),route.fulfill(status=200,json=dict(conectado=True)))[1])
+    page.get_by_role('button',name='Testar dados sem salvar',exact=True).click()
+    expect(page.get_by_text('Conexão pontual confirmada em somente leitura. Nenhum perfil ou destino foi alterado.',exact=True)).to_be_visible()
+    expect(page.get_by_label('Nova senha da conexão',exact=True)).to_have_value('')
+    assert set(calls[0])=={'host','port','service','user','password'}
+    page.unroute('**/api/oracle/testar')
+    page.route('**/api/oracle/diagnostico',lambda route:route.fulfill(status=200,json=dict(aviso='Metadados pontuais sintéticos',tabelas=[dict(nome='PCPRODUT',proprietario='A',visivel=True,colunas=[]),dict(nome='PCPRODUT',proprietario='B',visivel=True,colunas=[])])))
+    page.get_by_label('Nova senha da conexão',exact=True).fill('synthetic-browser-password')
+    page.get_by_role('button',name='Diagnosticar dados sem salvar',exact=True).click()
+    expect(page.get_by_text('Metadados pontuais sintéticos',exact=True)).to_be_visible()
+    expect(page.get_by_label('Nova senha da conexão',exact=True)).to_have_value('')
+    page.unroute('**/api/oracle/diagnostico')
+    page.get_by_role('button', name='Encerrar acesso', exact=True).click()
+    expect(page.get_by_label('Token de acesso local', exact=True)).to_have_value('')
+    go(page,'produtos');expect(page.get_by_role('button',name='Buscar cadastros',exact=True)).to_be_disabled()
+    go(page,'configuracoes');page.get_by_label('Token de acesso local',exact=True).fill(TOKEN)
+
+
+def scenario_nfe(page,root):
+    from ui_flow import go
+    go(page,'nfe')
+    page.get_by_label('Selecionar XML NF-e',exact=True).set_input_files(dict(name='invalid.xml',mimeType='application/xml',buffer=b'not XML'))
+    expect(page.get_by_role('alert')).to_be_visible()
+    page.get_by_label('Selecionar XML NF-e',exact=True).set_input_files(str(root/'exemplos/nota-demo.xml'))
+    expect(page.get_by_role('heading',name='Nota 12 · Série 1',exact=True)).to_be_visible()
+    expect(page.get_by_text('Nenhuma divergência foi confirmada.',exact=False)).to_be_visible()
+    go(page,'visao-geral');go(page,'nfe')
+    expect(page.get_by_role('heading',name='Nota 12 · Série 1',exact=True)).to_be_visible()
+    page.get_by_role('button',name='Limpar nota',exact=True).click()
+    expect(page.get_by_role('heading',name='Nenhuma nota carregada',exact=True)).to_be_visible()
+
+
+def scenario_features(page,root):
+    from ui_flow import go
+    go(page,'validacao')
+    page.get_by_label('Status',exact=True).select_option('planejado')
+    expect(page.locator('[data-feature]')).to_have_count(2)
+    expect(page.get_by_role('heading',name='Integração SEFAZ',exact=True)).to_be_visible()
+    page.get_by_label('Status',exact=True).select_option('todos')
+    page.get_by_label('Módulo',exact=True).select_option('produtos')
+    expect(page.locator('[data-feature]')).to_have_count(1)
+    page.get_by_label('Módulo',exact=True).select_option('todos')
+    page.get_by_label('Buscar funcionalidade',exact=True).fill('not-a-feature')
+    expect(page.get_by_role('heading',name='Nenhuma funcionalidade encontrada',exact=True)).to_be_visible()
+    page.get_by_label('Buscar funcionalidade',exact=True).fill('')
+    for button,suffix in [('Relatório técnico JSON','json'),('Relatório legível','md')]:
+        with page.expect_download() as event: page.get_by_role('button',name=button,exact=True).click()
+        download=event.value;target=root/('report.'+suffix);download.save_as(str(target));content=target.read_text(encoding='utf-8')
+        assert TOKEN not in content and 'synthetic-browser-password' not in content and 'synthetic.invalid' not in content
+        if suffix=='json': assert json.loads(content)['schema_version']==1
+        else: assert 'homologação Oracle real' in content
+
+
+def scenario_updates(page,cfg):
+    from ui_flow import go
+    go(page,'suporte')
+    expect(page.get_by_role('button',name='Atualizar agora',exact=True)).to_be_disabled()
+    requests=[]
+    page.route('**/api/updates/status',lambda route:route.fulfill(status=200,json=dict(version=cfg['version'],channel='teste',enabled=True,available='99.0.0',notes='Synthetic update',status='Atualização disponível',restart_required=True)))
+    page.route('**/api/updates/apply',lambda route:(requests.append(route.request.post_data_json),route.fulfill(status=200,json=dict(status='solicitado')))[1])
+    page.once('dialog',lambda d:d.dismiss())
+    expect(page.get_by_role('button',name='Atualizar agora',exact=True)).to_be_enabled(timeout=6000)
+    page.get_by_role('button',name='Atualizar agora',exact=True).click();assert not requests
+    page.once('dialog',lambda d:d.accept());page.get_by_role('button',name='Atualizar agora',exact=True).click()
+    expect(page.get_by_text('Versão disponível: 99.0.0',exact=True)).to_be_visible();assert requests==[{}]
+    page.unroute('**/api/updates/status')
+    page.route('**/api/updates/status',lambda route:route.fulfill(status=200,json=dict(version='99.0.0',channel='teste',enabled=True,available=None,notes='',status='Instalada',restart_required=False)))
+    with page.expect_navigation(wait_until='load'): page.wait_for_timeout(2500)
+    go(page,'configuracoes');expect(page.get_by_label('Token de acesso local',exact=True)).to_have_value('')
+    assert page.evaluate('localStorage.length + sessionStorage.length') == 0
+
+
 def run(package, python=None, browser_path=None):
     with tempfile.TemporaryDirectory(prefix='HUGINN browser test ') as temp:
         with zipfile.ZipFile(package) as z:
@@ -42,150 +242,20 @@ def run(package, python=None, browser_path=None):
                                 log.seek(0)
                                 raise AssertionError(log.read().decode(errors='replace'))
                             time.sleep(.1)
-                    expect(page.get_by_role('heading', name='HUGINN IA · Consulta WinThor')).to_be_visible()
-                    expect(page.get_by_role('button', name='Atualizar agora')).to_be_disabled()
-                    expect(page.get_by_text('Versão atual: '+cfg['version'], exact=False)).to_be_visible()
-                    # Exercise the real authenticated demo API, not route mocks/Oracle.
-                    page.get_by_label('Token de acesso local', exact=True).fill('synthetic-browser-token-' + 'x' * 32)
-                    page.get_by_role('button', name='Verificar conexão WinThor').click()
-                    expect(page.get_by_text('SIMULAÇÃO — dados fictícios, sem Oracle', exact=True)).to_be_visible()
-                    page.get_by_role('button', name='Buscar cadastros').click()
-                    table = page.get_by_role('table', name='Cadastros WinThor')
-                    expect(table.get_by_role('row')).to_have_count(21)
-                    expect(table.get_by_role('cell', name='Produto demonstrativo 001', exact=True)).to_be_visible()
-                    page.get_by_role('button', name='Próxima página').click()
-                    expect(table.get_by_role('cell', name='Produto demonstrativo 021', exact=True)).to_be_visible()
-                    page.get_by_role('button', name='Página anterior').click()
-                    expect(table.get_by_role('cell', name='Produto demonstrativo 001', exact=True)).to_be_visible()
-                    page.get_by_label('Nome ou descrição', exact=True).fill('055')
-                    page.get_by_role('button', name='Buscar cadastros').click()
-                    expect(table.get_by_role('row')).to_have_count(2)
-                    expect(table.get_by_role('cell', name='Produto demonstrativo 055', exact=True)).to_be_visible()
-                    page.get_by_label('Cadastro', exact=True).select_option('fornecedores')
-                    page.get_by_label('Código do cadastro', exact=True).fill('3')
-                    page.get_by_role('button', name='Buscar cadastros').click()
-                    expect(table.get_by_role('cell', name='Fornecedor demonstrativo 003', exact=True)).to_be_visible()
-                    page.get_by_label('Código do cadastro', exact=True).fill('99999')
-                    page.get_by_role('button', name='Buscar cadastros').click()
-                    expect(page.get_by_text('Nenhum cadastro encontrado para os filtros informados.', exact=True)).to_be_visible()
-                    page.get_by_role('button', name='Diagnosticar estrutura').click()
-                    expect(page.get_by_text('Estrutura simulada. Nenhuma coluna foi confirmada em Oracle real.', exact=True)).to_be_visible()
-                    page.get_by_label('Cadastro', exact=True).select_option('produtos')
-                    page.route('**/api/winthor/produtos', lambda route: route.fulfill(status=502, json=dict(detail='Consulta indisponível simulada')))
-                    page.get_by_role('button', name='Buscar cadastros').click()
-                    expect(page.get_by_role('alert')).to_have_text('Consulta indisponível simulada')
-                    page.unroute('**/api/winthor/produtos')
-                    page.get_by_role('button', name='Buscar cadastros').click()
-                    expect(table.get_by_role('row')).to_have_count(21)
-                    page.get_by_role('button', name='Carregar conexões salvas').click()
-                    if os.name == 'nt':
-                        def fill_profile(name='Perfil sintético'):
-                            for label, value in [('Nome da conexão', name), ('Host da conexão', 'synthetic.invalid'),
-                                    ('Porta da conexão', '1521'), ('Service Name da conexão', 'SYNTHETIC'),
-                                    ('Usuário da conexão', 'synthetic'), ('Schema WinThor', 'WINT'),
-                                    ('Nova senha da conexão', 'synthetic-password-never-oracle')]:
-                                page.get_by_label(label, exact=True).fill(value)
-                        fill_profile()
-                        page.get_by_role('button', name='Salvar conexão', exact=True).click()
-                        expect(page.get_by_label('Nova senha da conexão', exact=True)).to_have_value('')
-                        expect(page.get_by_role('button', name='Selecionar Perfil sintético', exact=True)).to_be_enabled()
-                        page.get_by_role('button', name='Selecionar Perfil sintético', exact=True).click()
-                        expect(page.get_by_text('Consultas direcionadas a: Perfil sintético — TESTE', exact=True)).to_be_visible()
-                        # Reload proves that the browser does not persist secrets or connection forms.
-                        page.reload()
-                        expect(page.get_by_label('Token de acesso local', exact=True)).to_have_value('')
-                        page.get_by_label('Token de acesso local', exact=True).fill('synthetic-browser-token-' + 'x' * 32)
-                        page.get_by_role('button', name='Carregar conexões salvas').click()
-                        expect(page.get_by_role('button', name='Editar Perfil sintético', exact=True)).to_be_visible()
-                        page.get_by_role('button', name='Editar Perfil sintético', exact=True).click()
-                        expect(page.get_by_label('Nova senha da conexão', exact=True)).to_have_value('')
-                        page.get_by_label('Ambiente da conexão', exact=True).select_option('PRODUCAO')
-                        page.get_by_label('Nova senha da conexão', exact=True).fill('replacement-synthetic-only')
-                        page.get_by_role('button', name='Salvar conexão', exact=True).click()
-                        expect(page.get_by_text('Consultas direcionadas a:', exact=False)).to_have_count(0)
-                        page.once('dialog', lambda dialog: dialog.dismiss())
-                        page.get_by_role('button', name='Selecionar Perfil sintético', exact=True).click()
-                        expect(page.get_by_text('Consultas direcionadas a:', exact=False)).to_have_count(0)
-                        page.once('dialog', lambda dialog: dialog.accept())
-                        page.get_by_role('button', name='Selecionar Perfil sintético', exact=True).click()
-                        expect(page.get_by_text('Consultas direcionadas a: Perfil sintético — PRODUÇÃO', exact=True)).to_be_visible()
-                        page.once('dialog', lambda dialog: dialog.accept())
-                        page.get_by_role('button', name='Remover senha de Perfil sintético', exact=True).click()
-                        expect(page.get_by_role('button', name='Selecionar Perfil sintético', exact=True)).to_be_disabled()
-                        page.once('dialog', lambda dialog: dialog.accept())
-                        page.get_by_role('button', name='Excluir Perfil sintético', exact=True).click()
-                        expect(page.get_by_role('button', name='Editar Perfil sintético', exact=True)).to_have_count(0)
-                        page.once('dialog', lambda dialog: dialog.accept())
-                        page.get_by_role('button', name='Usar configuração por ambiente', exact=True).click()
-                        expect(page.get_by_text('Origem: configuração por ambiente, destino não classificado.', exact=True)).to_be_visible()
-                        # No real Oracle operation is invoked for saved test profiles in this suite.
-                    else:
-                        expect(page.get_by_text('Proteção Windows indisponível neste sistema.', exact=False)).to_be_visible()
-                    page.get_by_role('button', name='Encerrar acesso').click()
-                    expect(page.get_by_label('Token de acesso local', exact=True)).to_have_value('')
-                    expect(table).to_have_count(0)
-                    expect(page.get_by_role('button', name='Buscar cadastros')).to_be_disabled()
-                    calls = []
-                    def diagnostic(route):
-                        calls.append(route.request.post_data_json)
-                        route.fulfill(status=200,json=dict(modo='metadados somente leitura',tabelas=[
-                            dict(nome='PCPRODUT',proprietario='A',visivel=True,colunas=[dict(coluna='CODPROD',tipo='NUMBER')]),
-                            dict(nome='PCPRODUT',proprietario='B',visivel=True,colunas=[dict(coluna='DESCRICAO',tipo='VARCHAR2')]),
-                            dict(nome='PCMOV',proprietario=None,visivel=False,colunas=[])]))
-                    page.route('**/api/oracle/diagnostico', diagnostic)
-                    page.route('**/api/oracle/testar',lambda route:route.fulfill(status=200,json=dict(conectado=True)))
-                    button = page.get_by_role('button',name='Diagnosticar tabelas WinThor')
-                    button.click()
-                    assert not calls
-                    def fill():
-                        for label,value in [('Host ou IP','synthetic.local'),('Service Name','SYNTHETIC'),('Usuário de leitura','synthetic'),('Senha','synthetic-test-only')]:
-                            page.get_by_label(label,exact=True).fill(value)
-                    fill(); button.click()
-                    expect(page.get_by_label('Senha',exact=True)).to_have_value('')
-                    page.locator('summary').filter(has_text='A.PCPRODUT').click()
-                    expect(page.get_by_role('cell',name='CODPROD',exact=True)).to_be_visible()
-                    page.locator('summary').filter(has_text='B.PCPRODUT').click()
-                    expect(page.get_by_role('cell',name='DESCRICAO',exact=True)).to_be_visible()
-                    expect(page.locator('summary').filter(has_text='PCMOV — não visível')).to_be_visible()
-                    page.get_by_label('Host ou IP').fill('changed.local')
-                    expect(page.locator('summary')).to_have_count(0)
-                    page.get_by_label('Senha',exact=True).fill('synthetic-test-only')
-                    page.get_by_role('button',name='Testar conexão Oracle').click()
-                    expect(page.get_by_text('Conexão confirmada em somente leitura.',exact=False)).to_be_visible()
-                    expect(page.get_by_label('Senha',exact=True)).to_have_value('')
-                    page.unroute('**/api/oracle/diagnostico')
-                    page.route('**/api/oracle/diagnostico',lambda route:route.fulfill(status=502,json=dict(detail='Falha Oracle simulada')))
-                    fill(); button.click()
-                    expect(page.get_by_role('alert')).to_have_text('Falha Oracle simulada')
-                    page.locator('input[type=file]').set_input_files(str(root/'exemplos/nota-demo.xml'))
-                    expect(page.get_by_role('heading',name='Nota 12 · Série 1')).to_be_visible()
-                    update_requests = []
-                    page.route('**/api/updates/status',lambda route:route.fulfill(status=200,json=dict(
-                        version=cfg['version'],channel='estavel',enabled=True,available='99.0.0',
-                        notes='Release sintética para teste de aprovação',status='Atualização disponível',restart_required=True)))
-                    def queue(route):
-                        update_requests.append((route.request.url,route.request.post_data_json))
-                        route.fulfill(status=200,json=dict(status='solicitado',restart_required=True))
-                    page.route('**/api/updates/apply',queue)
-                    page.on('dialog',lambda dialog:dialog.accept())
-                    expect(page.get_by_role('button',name='Atualizar agora')).to_be_enabled(timeout=6000)
-                    with page.expect_response(lambda response:response.url.endswith('/api/updates/apply')):
-                        page.get_by_role('button',name='Atualizar agora').click()
-                    assert update_requests[-1][1] == {}
-                    expect(page.get_by_text('Versão disponível: 99.0.0',exact=True)).to_be_visible()
-                    page.get_by_label('Senha',exact=True).fill('synthetic-test-only')
-                    page.unroute('**/api/updates/status')
-                    page.route('**/api/updates/status',lambda route:route.fulfill(status=200,json=dict(
-                        version='99.0.0',channel='estavel',enabled=True,available=None,notes='',status='Instalada',restart_required=False)))
-                    with page.expect_navigation(wait_until='load'):
-                        page.wait_for_timeout(2500)
-                    expect(page.get_by_label('Senha',exact=True)).to_have_value('')
-                    page.set_viewport_size(dict(width=390,height=844))
-                    button.scroll_into_view_if_needed()
-                    assert page.evaluate('document.documentElement.scrollWidth <= window.innerWidth')
-                    assert page.evaluate('localStorage.length') == 0
-                    assert not errors,errors
-                    print('PASS: Windows saved-connection CRUD/reload/secret clearing/environment confirmation (native on Windows, no Oracle); authenticated catalog demo real API, products/suppliers, pagination, filters, empty/error/recovery, schema demo, logout, production panel, metadata owners/columns/missing, field validation, credential clearing, connection mocked, failure mocked, XML, updates disabled/enabled approval UI/reload (mocked), mobile, no JS errors')
+                    scenario_navigation(page)
+                    scenario_access(page)
+                    scenario_catalog_search(page)
+                    scenario_schema(page)
+                    scenario_connections(page)
+                    scenario_nfe(page, root)
+                    scenario_features(page, root)
+                    if os.environ.get("HUGINN_UI_EVIDENCE_DIR"):
+                        from ui_snapshots import capture
+                        capture(page, Path(os.environ["HUGINN_UI_EVIDENCE_DIR"]), root / "exemplos/nota-demo.xml")
+                        page.set_viewport_size(dict(width=1440, height=1000))
+                    scenario_updates(page, cfg)
+                    assert not errors, errors
+                    print('PASS: enterprise navigation/one Oracle central, keyboard/mobile, access and no WebStorage, products/suppliers filters/pages/error/recovery, saved TESTE/PRODUCAO confirmation and CRUD, schema/extended metadata, XML local, catalog filters/sanitized reports, update approval/reload; Oracle synthetic only')
                     browser.close()
             finally:
                 if (root/'state').exists():

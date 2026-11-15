@@ -1,0 +1,9 @@
+[
+  {"id":"visao-geral","label":"Visão geral","group":"workspace"},
+  {"id":"nfe","label":"Auditoria NF-e","group":"workspace"},
+  {"id":"produtos","label":"Produtos","group":"workspace"},
+  {"id":"fornecedores","label":"Fornecedores","group":"workspace"},
+  {"id":"configuracoes","label":"Configurações","group":"management"},
+  {"id":"validacao","label":"Funcionalidades e Validação","group":"management"},
+  {"id":"suporte","label":"Diagnóstico e Suporte","group":"management"}
+]

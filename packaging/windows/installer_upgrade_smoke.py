@@ -19,6 +19,7 @@ import urllib.request
 import winreg
 import zipfile
 from http.server import BaseHTTPRequestHandler, HTTPServer
+from ui_flow import go
 from playwright.sync_api import expect, sync_playwright
 
 KEY = r'Software\Microsoft\Windows\CurrentVersion\Uninstall\{1F07B592-9CB4-4937-B35B-4A197E9AB867}_is1'
@@ -80,7 +81,7 @@ def case(args):
                 browser = playwright.chromium.launch(); page = browser.new_page()
                 primary, info, url = start(); old_version = info['version']
                 assert old_version == ('0.2.0' if args.case == 'portable' else args.case)
-                page.goto(url)
+                page.goto(url); go(page, 'configuracoes')
                 expect(page.get_by_label('Nome da conexão', exact=True)).to_be_visible()
                 for label, value in [('Nome da conexão','Instalador sintético'),('Host da conexão','127.0.0.1'),
                     ('Service Name da conexão','SYNTHETIC'),('Usuário da conexão','synthetic'),('Schema WinThor','WINT'),('Nova senha da conexão','synthetic-installer-only')]:
@@ -108,23 +109,23 @@ def case(args):
                 assert sentinel.read_text() == 'portable user data'
                 assert (sibling / 'HUGINN-IA-Windows-x64/bootstrap.json').read_bytes() == sibling_config
                 expected = json.loads((root / 'bootstrap.json').read_text())['version']
-                assert expected == '0.3.1'
+                assert expected == json.loads((args.installer.parent / 'INSTALLER-INFO.json').read_text())['version']
                 assert registration()['DisplayVersion'] == expected
                 assert (root / 'customer.txt').read_text() == 'preserve user data'
                 assert (root / 'state/preferences.json').read_text() == '{"theme":"custom"}'
                 # Inject driver double only into this disposable installed copy, after migration.
                 shutil.copy2(Path(__file__).parent / 'test_fixtures/oracledb.py', root / 'versions' / expected / 'backend/oracledb.py')
-                primary, info, url = start(); page.goto(url)
+                primary, info, url = start(); page.goto(url); go(page, 'configuracoes')
                 expect(page.get_by_role('button', name='Editar Instalador sintético', exact=True)).to_be_visible()
                 expect(page.get_by_text('Consultas direcionadas a:', exact=False)).to_have_count(0)
                 assert desktop.access_token(root, expected) == token
                 assert snapshot(vault) == before
                 page.get_by_role('button', name='Selecionar Instalador sintético', exact=True).click()
-                expect(page.get_by_text('Consultas direcionadas a: Instalador sintético — TESTE', exact=True)).to_be_visible()
+                expect(page.get_by_text('Destino selecionado: Instalador sintético', exact=False)).to_be_visible()
                 page.get_by_role('button', name='Verificar conexão WinThor', exact=True).click()
                 expect(page.get_by_text('ORACLE — somente leitura', exact=True)).to_be_visible()
                 for kind, code, label in [('produtos','101','Produto CI Oracle'),('fornecedores','202','Fornecedor CI Oracle')]:
-                    page.get_by_label('Cadastro', exact=True).select_option(kind)
+                    go(page, kind)
                     page.get_by_label('Código do cadastro', exact=True).fill(code)
                     page.get_by_role('button', name='Buscar cadastros', exact=True).click()
                     expect(page.get_by_role('table', name='Cadastros WinThor').get_by_text(label, exact=True)).to_be_visible()
@@ -139,8 +140,9 @@ def case(args):
                 assert registration() == old_registration
                 assert json.loads((root / 'state/current.json').read_text())['version'] == expected
                 assert snapshot(vault) == before
-                primary, info, url = start(); page.goto(url)
+                primary, info, url = start(); page.goto(url); go(page, 'configuracoes')
                 expect(page.get_by_role('button', name='Editar Instalador sintético', exact=True)).to_be_visible()
+                go(page, 'suporte')
                 page.once('dialog', lambda d:d.accept()); page.get_by_role('button', name='Encerrar HUGINN', exact=True).click()
                 assert primary.wait(timeout=30) == 0
                 # Simulate interruption after backup/copy, then rerun actual Setup to recover.
@@ -151,7 +153,7 @@ def case(args):
                 (root / 'state/current.json').write_text('{"version":"99.0.0"}')
                 setup(args.installer, explicit=False)
                 assert snapshot(vault) == before
-                primary, info, url = start(); page.goto(url)
+                primary, info, url = start(); page.goto(url); go(page, 'configuracoes')
                 expect(page.get_by_role('button', name='Editar Instalador sintético', exact=True)).to_be_visible()
                 # A normal reinstall with an ACTIVE instance is handled without operator commands.
                 setup(args.installer, explicit=False)
@@ -167,8 +169,9 @@ def case(args):
                 assert subprocess.run([str(uninstall), '/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART','/_?='+str(root)], env=env, timeout=120).returncode == 0
                 assert snapshot(vault) == before and (root / 'customer.txt').read_text() == 'preserve user data'
                 setup(args.installer)
-                primary, info, url = start(); page.goto(url)
+                primary, info, url = start(); page.goto(url); go(page, 'configuracoes')
                 expect(page.get_by_role('button', name='Editar Instalador sintético', exact=True)).to_be_visible()
+                go(page, 'suporte')
                 page.once('dialog', lambda d:d.accept()); page.get_by_role('button', name='Encerrar HUGINN', exact=True).click()
                 assert primary.wait(timeout=30) == 0
                 uninstall = Path(registration()['UninstallString'].strip('"'))
@@ -179,7 +182,7 @@ def case(args):
                 assert (root / 'customer.txt').read_text() == 'preserve user data'
                 with urllib.request.urlopen('http://127.0.0.1:8000') as response: assert response.read() == b'FOREIGN-SERVICE'
                 browser.close()
-                print(f'PASS: historical {old_version} ({args.case}) -> 0.3.1 Setup registry/in-place, authenticated stop, DPAPI/token bytes, Oracle fake queries, broken EXE rollback, interrupted recovery, reinstall, shortcuts, uninstall keep/remove, portable coexistence, foreign-service/user-files preservation; no reboot')
+                print(f'PASS: historical {old_version} ({args.case}) -> {expected} Setup registry/in-place, authenticated stop, DPAPI/token bytes, Oracle fake queries, broken EXE rollback, interrupted recovery, reinstall, shortcuts, uninstall keep/remove, portable coexistence, foreign-service/user-files preservation; no reboot')
         finally:
             if primary and primary.poll() is None:
                 (root / 'state/shutdown').touch(); primary.wait(timeout=40)

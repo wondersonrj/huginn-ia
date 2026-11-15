@@ -107,3 +107,10 @@ O Setup encontra a instalação do mesmo usuário e substitui os arquivos no mes
 diretório, preservando perfis/token DPAPI e configurações. Não desinstale antes.
 [Backup, instância ativa, rollback, portáteis e recuperação](docs/INSTALACAO_WINDOWS.md#atualizar-instalações-anteriores--27--setup-031).
 Sem reiniciar o Windows, merge ou release automática.
+
+## Interface empresarial 0.4.0
+
+Navegação lateral, dashboard, NF-e, produtos e fornecedores separados, única
+Central de Conexões e catálogo de funcionalidades com relatórios sanitizados.
+[Guia do operador e documentação técnica](docs/INTERFACE_EMPRESARIAL.md) ·
+[Imagens antes/depois](docs/screenshots/issue-29/README.md).
