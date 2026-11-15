@@ -205,3 +205,15 @@ inclui instalador/UI e update desktop assinado de commits distintos, perda de re
 rollback e preservação byte a byte de DPAPI. Resultados finais, commit, PR e
 artifact são registrados no PR que referencia #25. Testes fake não homologam
 Oracle real; não houve merge, release ou ativação em produção.
+
+Entrega #25: [PR #26](https://github.com/wondersonrj/huginn-ia/pull/26).
+Primeira evidência Windows concluída: [run 43742587109](https://github.com/wondersonrj/huginn-ia/actions/runs/43742587109),
+head `67e7aaf`: **301 aprovados, 1 ignorado**; Linux **300 aprovados, 2 ignorados**.
+Smoke desktop: update assinado 0.3.0→0.3.1 (commit distinto), perda de rede sem
+encerrar a versão atual, falha 0.3.2→rollback 0.3.1; perfil/token DPAPI preservados
+byte a byte. Smoke instalado: DUAL, metadados e CODPROD/CODFORNEC na UI com driver
+sintético, matriz negativa, reinstalação/upgrade e uninstall aprovados. Build web,
+auditoria, actionlint e diff check aprovados. Nova checagem visual confirma
+DUAL OK + owner errado, relatório parcial e owners não selecionados; reexecução
+final do HEAD/documentação e artifact 0.3.0 rastreável constam no PR #26.
+Oracle real do cliente não foi acessado nem declarado homologado.
