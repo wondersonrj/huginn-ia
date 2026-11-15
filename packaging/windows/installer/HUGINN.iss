@@ -16,7 +16,10 @@ AppName=HUGINN IA
 AppVersion={#AppVersion}
 AppVerName=HUGINN IA {#AppVersion} - TESTE - build {#SourceCommit}
 AppPublisher=HUGINN IA
-DefaultDirName={localappdata}\Programs\HUGINN IA
+DefaultDirName={code:ExistingDirectory}
+UsePreviousAppDir=yes
+UsePreviousTasks=yes
+DisableDirPage=no
 DefaultGroupName=HUGINN IA
 PrivilegesRequired=lowest
 ArchitecturesAllowed=x64compatible
@@ -27,7 +30,6 @@ OutputBaseFilename=HUGINN-IA-Setup
 Compression=lzma2
 SolidCompression=yes
 WizardStyle=modern
-AppMutex=Local\HUGINN-IA-Installed
 CloseApplications=no
 RestartApplications=no
 AlwaysRestart=no
@@ -42,6 +44,11 @@ Name: "brazilianportuguese"; MessagesFile: "compiler:Languages\BrazilianPortugue
 Name: "desktopicon"; Description: "Criar atalho na area de trabalho"; GroupDescription: "Atalhos:"
 
 [Files]
+; Execute trusted NEW maintenance code/runtime before modifying the old installation.
+Source: "{#Payload}\runtime\*"; DestDir: "{tmp}\HUGINN-maintenance\runtime"; Flags: dontcopy recursesubdirs createallsubdirs
+Source: "{#Payload}\installer_migration.py"; DestDir: "{tmp}\HUGINN-maintenance"; Flags: dontcopy
+Source: "{#Payload}\maintenance_windows.py"; DestDir: "{tmp}\HUGINN-maintenance"; Flags: dontcopy
+Source: "{#Payload}\installer-inventory.json"; DestDir: "{tmp}\HUGINN-maintenance"; Flags: dontcopy
 Source: "{#Payload}\*"; DestDir: "{app}"; Excludes: "runtime\*,state\*,*.dpapi,profiles.json,local-token.bin"; Flags: ignoreversion recursesubdirs createallsubdirs
 ; Runtime is immutable for this bootstrap family. A different runtime requires a separate installation.
 Source: "{#Payload}\runtime\*"; DestDir: "{app}\runtime"; Flags: onlyifdoesntexist recursesubdirs createallsubdirs
@@ -53,29 +60,123 @@ Name: "{autodesktop}\HUGINN IA"; Filename: "{app}\HUGINN-IA.exe"; WorkingDir: "{
 [Run]
 Filename: "{app}\HUGINN-IA.exe"; Description: "Abrir HUGINN IA e configurar a conexao"; Flags: nowait postinstall skipifsilent
 
-[UninstallDelete]
-Type: filesandordirs; Name: "{app}\runtime"
-Type: filesandordirs; Name: "{app}\versions"
-
 [Code]
-var PreserveData: Boolean;
-function PrepareToInstall(var NeedsRestart: Boolean): String;
-var Data: AnsiString;
+const
+  AppRegistry = 'Software\Microsoft\Windows\CurrentVersion\Uninstall\{1F07B592-9CB4-4937-B35B-4A197E9AB867}_is1';
+var
+  PreserveData, Staged, Prepared, Successful: Boolean;
+  MigrationLock: THandle;
+
+function MaintenanceCreateFile(Name: String; Access, Sharing, Security, Disposition, Attributes: LongWord; Template: THandle): THandle;
+  external 'CreateFileW@kernel32.dll stdcall';
+function MaintenanceLock(Handle: THandle; OffsetLow, OffsetHigh, CountLow, CountHigh: LongWord): Boolean;
+  external 'LockFile@kernel32.dll stdcall';
+function MaintenanceUnlock(Handle: THandle; OffsetLow, OffsetHigh, CountLow, CountHigh: LongWord): Boolean;
+  external 'UnlockFile@kernel32.dll stdcall';
+function MaintenanceClose(Handle: THandle): Boolean;
+  external 'CloseHandle@kernel32.dll stdcall';
+
+function ExistingDirectory(Param: String): String;
 begin
-  Result := '';
-  NeedsRestart := False;
-  if LoadStringFromFile(ExpandConstant('{app}\bootstrap.json'), Data) then
-    if Pos('{#RuntimeId}', String(Data)) = 0 then
-      Result := 'Este pacote usa outro runtime. Instale em uma pasta nova e recadastre a conexao; nao sera feito upgrade inseguro ou reinicio do Windows.';
+  if not RegQueryStringValue(HKCU64, AppRegistry, 'Inno Setup: App Path', Result) then
+    Result := ExpandConstant('{localappdata}\Programs\HUGINN IA');
+end;
+
+procedure StageMaintenance();
+begin
+  if not Staged then begin
+    ExtractTemporaryFiles('{tmp}\HUGINN-maintenance\*');
+    Staged := True;
+  end;
+end;
+
+function RunMaintenance(Action: String): Boolean;
+var ExitCode: Integer;
+begin
+  StageMaintenance();
+  Result := Exec(ExpandConstant('{tmp}\HUGINN-maintenance\runtime\python.exe'),
+    '-I "' + ExpandConstant('{tmp}\HUGINN-maintenance\installer_migration.py') + '" ' + Action +
+    ' --root "' + ExpandConstant('{app}') + '" --inventory "' + ExpandConstant('{tmp}\HUGINN-maintenance\installer-inventory.json') +
+    '" --report "' + ExpandConstant('{tmp}\HUGINN-maintenance\report.ini') + '"',
+    ExpandConstant('{tmp}\HUGINN-maintenance'), SW_HIDE, ewWaitUntilTerminated, ExitCode) and (ExitCode = 0);
+end;
+
+function MigrationMessage(): String;
+var Status: String;
+begin
+  Status := GetIniString('Migration', 'status', 'operation_refused', ExpandConstant('{tmp}\HUGINN-maintenance\report.ini'));
+  Result := 'Nao foi possivel atualizar com seguranca (' + Status + '). Dados preservados. Nao reinicie o Windows; consulte o guia de recuperacao e execute o Setup novamente.';
+  if Status = 'use_registered_directory' then
+    Result := 'Ja existe uma instalacao deste usuario. Use a pasta mostrada no assistente; mudar de pasta separaria o cofre DPAPI. Nenhuma instalacao foi removida.';
+  if Status = 'incompatible_installation' then
+    Result := 'Instalacao de outra familia/runtime/canal. A migracao foi recusada e os dados foram preservados. Consulte o suporte; nao e preciso reiniciar o Windows.';
+  if (Status = 'identity_unconfirmed') or (Status = 'shutdown_refused') or (Status = 'shutdown_pending') then
+    Result := 'A instancia ativa nao confirmou identidade/encerramento seguro. Use Encerrar HUGINN na propria interface e repita. Nenhum processo ou servico de terceiros sera finalizado.';
+end;
+
+procedure ReleaseMigrationLock();
+begin
+  if MigrationLock <> 0 then begin
+    MaintenanceUnlock(MigrationLock, 0, 0, 1, 0);
+    MaintenanceClose(MigrationLock);
+    MigrationLock := 0;
+  end;
+end;
+
+function NextButtonClick(CurPageID: Integer): Boolean;
+begin
+  Result := True;
+  if CurPageID = wpSelectDir then begin
+    Result := RunMaintenance('inspect');
+    if not Result then MsgBox(MigrationMessage(), mbError, MB_OK);
+  end;
+end;
+
+function UpdateReadyMemo(Space, NewLine, MemoUserInfoInfo, MemoDirInfo, MemoTypeInfo, MemoComponentsInfo, MemoGroupInfo, MemoTasksInfo: String): String;
+begin
+  RunMaintenance('inspect');
+  Result := MemoDirInfo + NewLine + NewLine + 'Atualizacao HUGINN IA: ' +
+    GetIniString('Migration', 'previous', 'instalacao nova', ExpandConstant('{tmp}\HUGINN-maintenance\report.ini')) +
+    ' -> {#AppVersion}' + NewLine + 'Preservar conexoes, senhas DPAPI, token, dados e configuracoes deste usuario.' + NewLine +
+    'A instancia autenticada do HUGINN sera encerrada com seguranca. Sem desinstalar duas vezes, sem reiniciar o Windows e sem alterar Oracle.' + NewLine +
+    'Copias portateis em outras pastas nao serao alteradas.' + NewLine + MemoTasksInfo;
+end;
+
+function PrepareToInstall(var NeedsRestart: Boolean): String;
+begin
+  Result := ''; NeedsRestart := False;
+  if not RunMaintenance('inspect') then begin Result := MigrationMessage(); Exit; end;
+  if not RunMaintenance('stop-owned') then begin Result := MigrationMessage(); Exit; end;
+  ForceDirectories(ExpandConstant('{app}\state'));
+  MigrationLock := MaintenanceCreateFile(ExpandConstant('{app}\state\supervisor.lock'), $C0000000, 3, 0, 4, $80, 0);
+  if MigrationLock = $FFFFFFFF then begin MigrationLock := 0; Result := 'Pasta em uso/sem permissao. Nenhum dado foi removido.'; Exit; end;
+  if not MaintenanceLock(MigrationLock, 0, 0, 1, 0) then begin
+    MaintenanceClose(MigrationLock); MigrationLock := 0;
+    Result := 'HUGINN ainda em uso. Aguarde seu encerramento e repita; nenhum outro processo sera finalizado.'; Exit;
+  end;
+  if not RunMaintenance('prepare') then begin Result := MigrationMessage(); ReleaseMigrationLock(); Exit; end;
+  Prepared := True;
 end;
 
 procedure CurStepChanged(CurStep: TSetupStep);
-var Code: Integer;
+var ExitCode: Integer;
 begin
   if CurStep = ssPostInstall then begin
-    if not Exec(ExpandConstant('{app}\runtime\python.exe'), '-I "' + ExpandConstant('{app}\installer_state.py') + '" --activate', ExpandConstant('{app}'), SW_HIDE, ewWaitUntilTerminated, Code) or (Code <> 0) then
-      RaiseException('A nova versao nao confirmou saude. O apontador anterior foi preservado; consulte o guia de recuperacao.');
+    if not Exec(ExpandConstant('{app}\runtime\python.exe'), '-I "' + ExpandConstant('{app}\installer_state.py') + '" --activate-maintenance',
+        ExpandConstant('{app}'), SW_HIDE, ewWaitUntilTerminated, ExitCode) or (ExitCode <> 0) then
+      RaiseException('A nova versao nao confirmou integridade/saude. A instalacao anterior sera restaurada, preservando as conexoes.');
+    if not RunMaintenance('commit') then RaiseException(MigrationMessage());
+    Successful := True;
+    ReleaseMigrationLock();
   end;
+end;
+
+procedure DeinitializeSetup();
+begin
+  if Prepared and not Successful then
+    if not RunMaintenance('rollback') then
+      MsgBox('Recuperacao pendente. Preserve a pasta e execute novamente o Setup. Nao reinicie o Windows nem apague o cofre.', mbError, MB_OK);
+  ReleaseMigrationLock();
 end;
 
 function InitializeUninstall(): Boolean;

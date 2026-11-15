@@ -185,6 +185,10 @@ def main():
         raise KeyboardInterrupt
     signal.signal(signal.SIGTERM, interrupted)
     try:
+        if (ROOT / '.installer-backup/journal.json').exists():
+            from installer_migration import pending
+            if pending(ROOT):
+                raise UpdateError('Instalacao incompleta; execute novamente o Setup para recuperar sem apagar dados.')
         config = json.loads((ROOT / 'bootstrap.json').read_text())
         supervisor = Supervisor(ROOT, config, desktop='--desktop' in sys.argv)
         if supervisor.desktop:

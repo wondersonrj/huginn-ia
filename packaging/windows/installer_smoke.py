@@ -62,8 +62,11 @@ def run(installer, upgrade=None):
             assert json.loads((root / 'state/instance.json').read_text())['port'] == info['port']
             multiple = [subprocess.Popen([str(root / 'HUGINN-IA.exe'), '--no-browser'], env=env) for _ in range(2)]
             assert all(p.wait(timeout=30) == 0 for p in multiple)
-            # An active application blocks an installer, without force-closing it/reboot.
-            assert install(installer).returncode != 0 and primary.poll() is None
+            # New Setup authenticates/stops only its own active application, then replaces it in place.
+            assert install(installer).returncode == 0
+            assert primary.wait(timeout=30) == 0
+            (root / 'state/instance.json').unlink(missing_ok=True)
+            primary, info = start(); url = f'http://127.0.0.1:{info["port"]}'
             with sync_playwright() as playwright:
                 browser = playwright.chromium.launch()
                 page = browser.new_page()

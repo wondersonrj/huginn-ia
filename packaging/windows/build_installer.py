@@ -22,7 +22,9 @@ def build(package, destination):
         if info['channel'] != 'teste':
             raise RuntimeError('Installer MVP supports homologation/test channel only')
         source = ROOT / 'packaging/windows'
-        shutil.copy2(source / 'installer_state.py', payload / 'installer_state.py')
+        for name in ['installer_state.py', 'installer_migration.py']:
+            shutil.copy2(source / name, payload / name)
+        shutil.copy2(payload / 'versions' / info['version'] / 'backend/app/windows_secrets.py', payload / 'maintenance_windows.py')
         vswhere = Path(r'C:\Program Files (x86)\Microsoft Visual Studio\Installer\vswhere.exe')
         visual = subprocess.check_output([str(vswhere), '-latest', '-products', '*', '-requires',
             'Microsoft.VisualStudio.Component.VC.Tools.x86.x64', '-property', 'installationPath'], text=True).strip()
@@ -33,6 +35,12 @@ def build(package, destination):
         script.write_text(f'@echo off\ncall "{visual}\\Common7\\Tools\\VsDevCmd.bat" -arch=x64\n'
                           f'cl /nologo /O2 /W4 /MT /DUNICODE /D_UNICODE /Fe:"{payload / "HUGINN-IA.exe"}" "{source / "installer/launch.c"}" user32.lib /link /SUBSYSTEM:WINDOWS\n', encoding='utf-8')
         subprocess.run(['cmd.exe', '/d', '/c', str(script)], check=True, cwd=temp)
+        cfg = json.loads((payload / 'bootstrap.json').read_text())
+        files = {p.relative_to(payload).as_posix(): hashlib.sha256(p.read_bytes()).hexdigest()
+                 for p in payload.rglob('*') if p.is_file() and p.relative_to(payload).parts[0] not in {'runtime', 'state'}
+                 and '__pycache__' not in p.parts}
+        (payload / 'installer-inventory.json').write_text(json.dumps(dict(format=1, version=info['version'],
+            runtime_id=cfg['runtime_id'], channel=cfg['channel'], source_commit=info['source_commit'], files=files)))
         subprocess.run([str(compiler), f'/DPayload={payload}', f'/DOutput={destination}',
             f'/DAppVersion={info["version"]}', f'/DSourceCommit={info["source_commit"][:12]}', f'/DRuntimeId={json.loads((payload / "bootstrap.json").read_text())["runtime_id"]}',
             str(source / 'installer/HUGINN.iss')], check=True)
