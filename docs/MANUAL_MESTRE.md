@@ -250,3 +250,9 @@ symlinks, downgrade ativo e HMAC forjado. CI Windows usa EXEs históricos reais
 rollback, recuperação de interrupção, atalho/registro e uninstall keep/remove.
 Os resultados finais e artifact rastreável são registrados no PR #28. Sem merge,
 release, publicação, instalação remota, reboot ou alterações no Oracle do cliente.
+
+Na validação com EXE quebrado, a exceção no evento pós-instalação do Inno não
+sinalizava falha ao chamador (retornava 0). Corrigido com código de saída 8,
+tela de atualização não aplicada e bloqueio de abertura do novo aplicativo;
+rollback continua obrigatório ao fechar o Setup. A CI exige retorno de falha
+e instalação anterior íntegra antes de aceitar o artifact.

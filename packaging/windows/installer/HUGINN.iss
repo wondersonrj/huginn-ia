@@ -60,7 +60,7 @@ Name: "{group}\HUGINN IA"; Filename: "{app}\HUGINN-IA.exe"; WorkingDir: "{app}"
 Name: "{autodesktop}\HUGINN IA"; Filename: "{app}\HUGINN-IA.exe"; WorkingDir: "{app}"; Tasks: desktopicon
 
 [Run]
-Filename: "{app}\HUGINN-IA.exe"; Description: "Abrir HUGINN IA e configurar a conexao"; Flags: nowait postinstall skipifsilent
+Filename: "{app}\HUGINN-IA.exe"; Description: "Abrir HUGINN IA e configurar a conexao"; Flags: nowait postinstall skipifsilent; Check: MigrationSucceeded
 
 [UninstallDelete]
 ; Fixed files from this package only. Never recursively delete runtime/versions.
@@ -144,13 +144,41 @@ begin
   end;
 end;
 
+function MigrationSucceeded(): Boolean;
+begin
+  Result := Successful;
+end;
+
+function SourceDescription(Value: String): String;
+begin
+  Result := 'instalacao nova';
+  if Value = 'installed' then Result := 'instalacao registrada deste usuario';
+  if Value = 'portable' then Result := 'copia portatil selecionada, converter no mesmo local';
+  if Value = 'retained' then Result := 'dados preservados de uma instalacao removida';
+  if Value = 'recovery' then Result := 'transacao interrompida, recuperar antes de atualizar';
+end;
+
+function GetCustomSetupExitCode(): Integer;
+begin
+  Result := 0;
+  if Prepared and not Successful then Result := 8;
+end;
+
+procedure CurPageChanged(CurPageID: Integer);
+begin
+  if (CurPageID = wpFinished) and Prepared and not Successful then begin
+    WizardForm.FinishedHeadingLabel.Caption := 'Atualizacao nao aplicada';
+    WizardForm.FinishedLabel.Caption := 'A nova versao nao confirmou integridade/saude. Feche este assistente para restaurar a instalacao anterior. Conexoes e senhas serao preservadas. Nao reinicie o Windows.';
+  end;
+end;
+
 function UpdateReadyMemo(Space, NewLine, MemoUserInfoInfo, MemoDirInfo, MemoTypeInfo, MemoComponentsInfo, MemoGroupInfo, MemoTasksInfo: String): String;
 begin
   RunMaintenance('inspect');
   Result := MemoDirInfo + NewLine + NewLine + 'Atualizacao HUGINN IA: ' +
     GetIniString('Migration', 'previous', 'instalacao nova', ExpandConstant('{tmp}\HUGINN-maintenance\report.ini')) +
     ' -> {#AppVersion}' + NewLine + 'Origem: ' +
-    GetIniString('Migration', 'kind', 'fresh', ExpandConstant('{tmp}\HUGINN-maintenance\report.ini')) + NewLine + 'Preservar conexoes, senhas DPAPI, token, dados e configuracoes deste usuario.' + NewLine +
+    SourceDescription(GetIniString('Migration', 'kind', 'fresh', ExpandConstant('{tmp}\HUGINN-maintenance\report.ini'))) + NewLine + 'Preservar conexoes, senhas DPAPI, token, dados e configuracoes deste usuario.' + NewLine +
     'A instancia autenticada do HUGINN sera encerrada com seguranca. Sem desinstalar duas vezes, sem reiniciar o Windows e sem alterar Oracle.' + NewLine +
     'Copias portateis em outras pastas nao serao alteradas.' + NewLine + MemoTasksInfo;
 end;
