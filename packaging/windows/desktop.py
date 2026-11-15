@@ -59,6 +59,11 @@ def _access_token(root, version, reset=False):
         return value
 
 
+def build_commit(root, version):
+    config = json.loads((Path(root) / 'versions' / version / 'version.json').read_text())
+    return config.get('source_commit') or json.loads((Path(root) / 'BUILD-INFO.json').read_text())['source_commit']
+
+
 def verify_instance(root, expected_version, token):
     """Untrusted descriptor/service is never opened in the browser without HMAC proof."""
     try:
@@ -78,7 +83,7 @@ def verify_instance(root, expected_version, token):
         with opener.open(url + '/api/local-instance?challenge=' + challenge, timeout=1) as response:
             value = json.loads(response.read(2049))
         identity = installation_id(root)
-        build = json.loads((Path(root) / 'BUILD-INFO.json').read_text())['source_commit']
+        build = build_commit(root, expected_version)
         payload = f'{challenge}:{identity}:{expected_version}:{port}:{build}'
         expected = hmac.new(token.encode(), payload.encode(), hashlib.sha256).hexdigest()
         if (value['installation'] == identity and value['version'] == expected_version

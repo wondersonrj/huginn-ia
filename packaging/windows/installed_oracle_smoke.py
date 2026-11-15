@@ -22,7 +22,7 @@ def exercise(page, root, version):
     expect(page.get_by_text('Consultas direcionadas a: Instalador sintético — TESTE', exact=True)).to_be_visible()
     page.get_by_role('button', name='Verificar conexão WinThor', exact=True).click()
     expect(page.get_by_text('ORACLE — somente leitura', exact=True)).to_be_visible()
-    page.get_by_role('button', name='Conferir estrutura de consulta', exact=True).click()
+    page.get_by_role('button', name='Diagnosticar estrutura', exact=True).click()
     expect(page.get_by_text('Colunas e tipos confirmados nos metadados desta conexão.', exact=True)).to_be_visible()
     for kind, code, label in [('produtos', '101', 'Produto CI Oracle'), ('fornecedores', '202', 'Fornecedor CI Oracle')]:
         page.get_by_label('Cadastro', exact=True).select_option(kind)
@@ -37,7 +37,7 @@ def exercise(page, root, version):
         ({'password': 'invalid-synthetic'}, 'test', 502, 'senha inválidos'),
         ({'service': 'UNAVAILABLE'}, 'test', 502, 'listener'),
         ({'service': 'TIMEOUT'}, 'test', 502, 'Tempo de resposta'),
-        ({'owner': 'WRONG'}, 'diagnostico', 409, 'Schema não confirmado'),
+        ({'owner': 'WRONG'}, 'diagnostico', 200, 'objeto_ausente_ou_nao_visivel'),
         ({'service': 'NOSELECT'}, 'produtos', 502, 'SELECT'),
         ({'service': 'QUERYTIMEOUT'}, 'produtos', 502, 'timeout'),
     ]:
@@ -48,7 +48,7 @@ def exercise(page, root, version):
         else:
             assert post('/api/connections/select', ref(profile) | dict(confirm_environment='TESTE'))['status'] == 200
             result = post('/api/winthor/' + action, context(profile) | (dict(codigo=101) if action == 'produtos' else {}))
-        assert result['status'] == status and message in result['body']['detail'], (action, result)
+        assert result['status'] == status and message in json.dumps(result['body'], ensure_ascii=False), (action, result)
         assert 'invalid-synthetic' not in json.dumps(result)
     # Changing destination must reject an old context, even when mode was inherited as demo.
     old = context(profile)

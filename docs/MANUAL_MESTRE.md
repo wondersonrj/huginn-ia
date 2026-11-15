@@ -179,3 +179,29 @@ da CI Windows: revisão de PR agora usa main. Documentos deixam de exigir
 integração/retarget pendentes. Resultados da revalidação Windows e artifact
 consolidado são registrados no PR #24; as evidências anteriores acima são
 históricas, não substituem esta reexecução. Nenhum merge/release autorizado.
+
+## Issue #25 — diagnóstico Oracle e preparação de atualização
+
+Base main após #24; sem intervenção em Oracle/servidor de produção. O incidente
+real é DUAL OK e catálogo recusado; sua causa específica depende do relatório
+sanitizado do ambiente. A investigação comprovou no código o JOIN obrigatório com
+ALL_TABLES (exclusão de views) e mensagem genérica que confundia owner/metadados/
+colunas/privilégios. [Diagnóstico e recuperação](DIAGNOSTICO_ORACLE.md) documenta
+SELECT sem linhas, owners candidatos, sinônimos e confirmação explícita do owner,
+sem conceder grants nem escolher outro destino automaticamente.
+
+Nova versão de homologação 0.3.0: consultas read-only continuam restritas a
+PCPRODUT/PCFORNEC, binds e limites. Cofre/perfil existentes são preservados.
+Updater agora prepara validação de commit assinado e identidade por versão ativa.
+[Plano e bloqueio de ativação](ATUALIZACOES_WINDOWS.md): auto-update/publicação
+continuam desativados; é preciso infraestrutura de assinatura e aprovação real.
+Bootstrap antigo não pode ser trocado remotamente por código que ele não confia;
+instalador de transição na mesma pasta/usuário preserva dados. Updates posteriores
+compatíveis podem dispensar reinstalação após habilitação autorizada.
+
+Testes reproduzem a diferença DUAL/catalogo, metadados não visíveis, SELECT negado,
+owner incorreto, colunas/tipos inválidos e descoberta sem mutação. CI Windows
+inclui instalador/UI e update desktop assinado de commits distintos, perda de rede,
+rollback e preservação byte a byte de DPAPI. Resultados finais, commit, PR e
+artifact são registrados no PR que referencia #25. Testes fake não homologam
+Oracle real; não houve merge, release ou ativação em produção.

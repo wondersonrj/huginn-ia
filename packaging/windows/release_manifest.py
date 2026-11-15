@@ -8,6 +8,7 @@ from pathlib import Path
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from cryptography.hazmat.primitives import serialization
 from updater import REPO, version_tuple
+import re
 from signing_keys import public_key
 import zipfile
 
@@ -31,7 +32,9 @@ def main():
         cfg=json.loads(bundle.read('HUGINN-IA-Windows-x64/bootstrap.json'))
         if (cfg['version'],cfg['channel'],cfg['runtime_id'],cfg['public_key']) != (args.version,args.channel,runtime_id,expected):
             raise SystemExit('Identidade do pacote não corresponde à release/chave selecionada.')
-    signed = dict(version=args.version, channel=args.channel,
+    if not re.fullmatch('[0-9a-f]{40}', cfg.get('source_commit', '')):
+        raise SystemExit('Commit do pacote ausente/inválido.')
+    signed = dict(source_commit=cfg['source_commit'], version=args.version, channel=args.channel,
                   url=f'https://github.com/{REPO}/releases/download/v{args.version}/HUGINN-IA-Windows-x64.zip',
                   sha256=hashlib.sha256(args.zip.read_bytes()).hexdigest(),
                   notes=args.notes.read_text(encoding='utf-8')[:8000], bootstrap_version=1,

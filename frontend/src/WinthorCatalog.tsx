@@ -4,7 +4,7 @@ import { ConnectionManager, type Connection } from './ConnectionManager'
 type Kind = 'produtos' | 'fornecedores'
 type Health = { modo: 'simulado' | 'oracle'; conectado: boolean; disponivel: boolean; mensagem: string }
 type Result = { modo: 'simulado' | 'oracle'; itens: { codigo: string; nome: string }[]; pagina: number; tamanho: number; tem_proxima: boolean; limite_atingido: boolean }
-type Schema = { modo: string; validado_no_oracle: boolean; tabelas: { tabela: string; validado: boolean; colunas: { nome: string; tipo: string }[] }[] }
+type Schema = { modo: string; validado_no_oracle: boolean; mensagem?: string; owner_configurado?: string; contexto?: { schema_sessao?: string; usuario_sessao?: string }; tabelas: { tabela: string; validado: boolean; causa?: string; acao?: string; owners_candidatos?: string[]; sinonimos?: { owner: string; destino_owner: string; destino_tabela: string; remoto: boolean }[]; descoberta_limitada?: boolean; descoberta_indisponivel?: boolean; colunas: { nome: string; tipo: string }[] }[] }
 
 export function WinthorCatalog({ token, onTokenChange, automatic = false }: { token: string; onTokenChange: (value: string) => void; automatic?: boolean }) {
   const [connection, setConnection] = useState<Connection | null>(null)
@@ -93,13 +93,20 @@ export function WinthorCatalog({ token, onTokenChange, automatic = false }: { to
       </fieldset>
       <div className="catalog-actions">
         <button className="oracle-test" type="submit" disabled={!health?.disponivel || busy}>{busy ? 'Consultando…' : 'Buscar cadastros'}</button>
-        <button className="oracle-test" type="button" disabled={!health?.disponivel || busy} onClick={() => { void request('diagnostico') }}>Conferir estrutura de consulta</button>
+        <button className="oracle-test" type="button" disabled={!health?.disponivel || busy} onClick={() => { void request('diagnostico') }}>Diagnosticar estrutura</button>
       </div>
     </form>
     <div aria-live="polite">{busy && <p role="status">Aguarde a resposta do servidor local…</p>}{error && <p className="error" role="alert">{error}</p>}</div>
     {schema && <div className="catalog-schema"><h3>Estrutura para consulta</h3>
-      <p>{schema.validado_no_oracle ? 'Colunas e tipos confirmados nos metadados desta conexão.' : 'Estrutura simulada. Nenhuma coluna foi confirmada em Oracle real.'}</p>
-      <ul>{schema.tabelas.map(t => <li key={t.tabela}>{t.tabela}: {t.colunas.map(c => `${c.nome} (${c.tipo})`).join(', ')}</li>)}</ul></div>}
+      <p>{schema.modo === 'simulado' ? 'Estrutura simulada. Nenhuma coluna foi confirmada em Oracle real.' : schema.validado_no_oracle ? 'Colunas e tipos confirmados nos metadados desta conexão.' : 'Diagnóstico Oracle parcial: confira a causa de cada tabela abaixo.'}</p>
+      <p>{schema.mensagem}</p><p>{schema.contexto?.schema_sessao && `Schema da sessão: ${schema.contexto.schema_sessao} (perfil permanece explícito)`}</p><p>{schema.owner_configurado && `Owner configurado: ${schema.owner_configurado}`}</p>
+      <ul>{schema.tabelas.map(t => <li key={t.tabela}><strong>{t.tabela}</strong>: {t.colunas.map(c => `${c.nome} (${c.tipo})`).join(', ')}
+        <p>{t.causa} — {t.acao}</p>
+        {!!t.owners_candidatos?.length && <p>Owners visíveis (não selecionados): {t.owners_candidatos.join(', ')}. Use Editar conexão para confirmar o destino; depois selecione e verifique novamente.</p>}
+        {t.sinonimos?.map((s, i) => <p key={i}>Sinônimo {s.owner}: {s.destino_owner}.{s.destino_tabela}{s.remoto ? ' (remoto)' : ' (local)'}. Não seguido automaticamente; confirme o destino com o DBA.</p>)}
+        {t.descoberta_limitada && <p>Lista limitada a 20 destinos. Solicite apenas metadados ao DBA.</p>}
+        {t.descoberta_indisponivel && <p>Descoberta de metadados indisponível; isto não comprova ausência de permissão SELECT.</p>}
+      </li>)}</ul></div>}
     {result && <div className="catalog-results">
       <h3>{kind === 'produtos' ? 'Produtos encontrados' : 'Fornecedores encontrados'}</h3>
       <p>{result.modo === 'simulado' ? 'Resultados fictícios de demonstração.' : 'Dados consultados no Oracle, sem alterações no ERP.'}</p>

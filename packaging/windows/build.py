@@ -27,6 +27,8 @@ def copy_backend(source, destination):
 
 def build(output, version=None, channel=None, enable_updates=False, public_key_file=None):
     config = json.loads((REPO / "packaging/windows/version.json").read_text())
+    config["source_commit"] = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=REPO, text=True).strip()
+    config["require_source_commit"] = True
     config["version"] = version or config["version"]
     config["channel"] = channel or config["channel"]
     sys.path.insert(0, str(REPO / "packaging/windows"))
@@ -83,7 +85,7 @@ def build(output, version=None, channel=None, enable_updates=False, public_key_f
             else:
                 shutil.copy2(source, root / name)
         (root / 'docs').mkdir()
-        for doc in ['INSTALACAO_WINDOWS.md', 'CONEXOES_SALVAS.md', 'WINTHOR_MVP.md', 'ATUALIZACOES_WINDOWS.md', 'CONEXAO_ORACLE.md', 'DISTRIBUICAO_RELEASES.md', 'PREPARAR_TESTES_PELO_GITHUB.md']:
+        for doc in ['DIAGNOSTICO_ORACLE.md', 'INSTALACAO_WINDOWS.md', 'CONEXOES_SALVAS.md', 'WINTHOR_MVP.md', 'ATUALIZACOES_WINDOWS.md', 'CONEXAO_ORACLE.md', 'DISTRIBUICAO_RELEASES.md', 'PREPARAR_TESTES_PELO_GITHUB.md']:
             shutil.copy2(REPO / 'docs' / doc, root / 'docs' / doc)
         (root / 'exemplos').mkdir()
         # Extract only the existing synthetic fixture; never include local config.

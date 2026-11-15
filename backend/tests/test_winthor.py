@@ -63,8 +63,9 @@ def test_missing_incompatible_columns_never_query_business_table(columns):
     cursor.fetchmany.return_value = columns
     with patch('app.winthor.connect_readonly', return_value=con), pytest.raises(winthor.SchemaUnavailable):
         winthor.search(REAL, 'produtos')
-    assert len(cursor.execute.call_args_list) == 1
-    assert cursor.execute.call_args.args[0] == winthor.METADATA_SQL
+    assert len(cursor.execute.call_args_list) == (3 if not columns else 1)
+    assert cursor.execute.call_args_list[0].args[0] == winthor.METADATA_SQL
+    assert all('OFFSET' not in call.args[0] for call in cursor.execute.call_args_list)
     con.commit.assert_not_called()
     con.close.assert_called_once()
 
@@ -191,8 +192,9 @@ def test_both_reads_are_audited_without_result_contents(caplog):
 def test_real_health_and_diagnostic_close_connections_and_never_commit():
     con = MagicMock()
     cursor = con.cursor.return_value.__enter__.return_value
-    cursor.fetchmany.side_effect = [[('CODPROD', 'NUMBER'), ('DESCRICAO', 'VARCHAR2')],
-                                   [('CODFORNEC', 'NUMBER'), ('FORNECEDOR', 'VARCHAR2')]]
+    cursor.fetchmany.side_effect = [[('CODPROD', 'NUMBER'), ('DESCRICAO', 'VARCHAR2')], [('WINT',)], [],
+                                   [('CODFORNEC', 'NUMBER'), ('FORNECEDOR', 'VARCHAR2')], [('WINT',)], []]
+    cursor.description = [('CODE', SimpleNamespace(name='DB_TYPE_NUMBER')), ('NAME', SimpleNamespace(name='DB_TYPE_VARCHAR'))]
     with patch('app.winthor.connect_readonly', return_value=con):
         result = winthor.diagnostic(REAL)
     assert result['validado_no_oracle'] is True

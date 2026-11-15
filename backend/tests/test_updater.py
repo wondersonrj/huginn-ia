@@ -29,13 +29,13 @@ def setup_update(tmp_path):
     (tmp_path / 'versions/0.1.0/server.py').write_text('# synthetic old version')
     atomic_json(tmp_path / 'state/current.json', {'version': '0.1.0'})
     (tmp_path / 'state/preferences.json').write_text('{"theme":"dark"}')
-    def artifact(version='0.2.0', bad=None):
+    def artifact(version='0.2.0', bad=None, source_commit=None):
         buffer = io.BytesIO()
         prefix = f'HUGINN-IA-Windows-x64/versions/{version}/'
         with zipfile.ZipFile(buffer, 'w') as z:
             for path in ['server.py', 'backend/app/main.py', 'frontend/dist/index.html']:
                 z.writestr(prefix + path, '# synthetic test payload')
-            z.writestr(prefix + 'version.json', json.dumps(dict(version=version, runtime_id='test-runtime', channel='teste')))
+            z.writestr(prefix + 'version.json', json.dumps(dict(version=version, runtime_id='test-runtime', channel='teste') | ({'source_commit': source_commit} if source_commit else {})))
             if bad:
                 info = zipfile.ZipInfo('placeholder')
                 # Preserve adversarial raw names; Windows ZipInfo otherwise normalizes them on write.
@@ -46,6 +46,8 @@ def setup_update(tmp_path):
         signed = dict(version=version, channel='teste',
                       url=f'https://github.com/wondersonrj/huginn-ia/releases/download/v{version}/HUGINN-IA-Windows-x64.zip',
                       sha256=hashlib.sha256(data).hexdigest(), notes='Synthetic release', runtime_id='test-runtime', bootstrap_version=1)
+        if source_commit:
+            signed['source_commit'] = source_commit
         return sign(signed, key), data
     return engine, config, key, artifact
 
@@ -250,3 +252,30 @@ def test_windows_in_use_pointer_and_recovery(setup_update):
         kernel.CloseHandle(handle)
     assert engine.recover() is True
     assert engine.current() == '0.1.0'
+
+
+def test_new_bootstrap_requires_signed_commit_before_download_or_stop(setup_update):
+    engine, config, _, artifact = setup_update
+    config['require_source_commit'] = True
+    manifest, payload = artifact()
+    with pytest.raises(UpdateError, match='Commit'):
+        engine.apply(manifest, lambda: pytest.fail('must not stop'), lambda v: None, lambda d: True, lambda u: pytest.fail('must not download'))
+
+
+def test_signed_commit_must_match_payload_and_preserve_current_on_mismatch(setup_update):
+    engine, config, key, artifact = setup_update
+    config['require_source_commit'] = True
+    manifest, payload = artifact(source_commit='a' * 40)
+    manifest['signed']['source_commit'] = 'b' * 40
+    manifest = sign(manifest['signed'], key)
+    with pytest.raises(UpdateError, match='Commit do payload'):
+        engine.apply(manifest, lambda: pytest.fail('must not stop'), lambda v: None, lambda d: True, lambda u: payload)
+    assert engine.current() == '0.1.0'
+
+
+def test_compatible_signed_commit_update_preserves_state(setup_update):
+    engine, config, _, artifact = setup_update
+    config['require_source_commit'] = True
+    manifest, payload = artifact(source_commit='a' * 40)
+    assert engine.apply(manifest, lambda: None, lambda v: None, lambda d: True, lambda u: payload) == '0.2.0'
+    assert (engine.state / 'preferences.json').read_text() == '{"theme":"dark"}'

@@ -48,7 +48,7 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw 'Update rollback failed' }
       - name: Build synthetic upgrade fixture (never distributed)
         run: |
-          python packaging/windows/build.py --version 0.2.1 --output upgrade-fixture
+          python packaging/windows/build.py --version 0.3.1 --output upgrade-fixture
           if ($LASTEXITCODE -ne 0) { throw 'Upgrade fixture failed' }
           python packaging/windows/build_installer.py --package upgrade-fixture/HUGINN-IA-Windows-x64.zip --output upgrade-installer
           if ($LASTEXITCODE -ne 0) { throw 'Upgrade fixture installer failed' }

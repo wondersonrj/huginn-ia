@@ -89,7 +89,7 @@ def test_manifest_signer_checks_zip_identity(tmp_path,monkeypatch):
     notes=tmp_path/'notes.md';notes.write_text('synthetic')
     archive=tmp_path/'package.zip'
     runtime=hashlib.sha256(Path('packaging/windows/requirements.lock').read_bytes()).hexdigest()
-    cfg=dict(version='0.2.1',channel='teste',public_key=public,runtime_id=runtime)
+    cfg=dict(version='0.2.1',channel='teste',public_key=public,runtime_id=runtime,source_commit='a'*40)
     with zipfile.ZipFile(archive,'w') as z:z.writestr('HUGINN-IA-Windows-x64/bootstrap.json',json.dumps(cfg))
     args=['release_manifest.py','--version','0.2.1','--channel','teste','--notes',str(notes),'--zip',str(archive),'--public-key-file',str(public_file)]
     with patch.object(sys,'argv',args):release_manifest.main()

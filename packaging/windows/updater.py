@@ -103,17 +103,19 @@ def fetch(url, limit=MAX_DOWNLOAD):
         raise UpdateError('Rede indisponível ou download recusado; versão atual preservada.') from None
 
 
-def signed_manifest(envelope, public_key, current, channel, runtime_id):
+def signed_manifest(envelope, public_key, current, channel, runtime_id, require_source_commit=False):
     try:
         if set(envelope) != {'signed', 'signature'}:
             raise ValueError()
         data = envelope['signed']
-        if set(data) != {'version', 'channel', 'url', 'sha256', 'notes', 'runtime_id', 'bootstrap_version'}:
+        if set(data) not in ({'version', 'channel', 'url', 'sha256', 'notes', 'runtime_id', 'bootstrap_version'}, {'version', 'channel', 'url', 'sha256', 'notes', 'runtime_id', 'bootstrap_version', 'source_commit'}):
             raise ValueError()
         canonical = json.dumps(data, sort_keys=True, separators=(',', ':'), ensure_ascii=True).encode()
         from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
         key = Ed25519PublicKey.from_public_bytes(base64.b64decode(public_key, validate=True))
         key.verify(base64.b64decode(envelope['signature'], validate=True), canonical)
+        if (require_source_commit or 'source_commit' in data) and not re.fullmatch('[0-9a-f]{40}', data.get('source_commit', '')):
+            raise UpdateError('Commit assinado ausente ou inválido.')
         if version_tuple(data['version']) <= version_tuple(current):
             raise UpdateError('Versão não é mais recente; downgrade/replay recusado.')
         if channel not in {'teste', 'estavel'} or data['channel'] != channel:
@@ -156,7 +158,7 @@ def discover(config, current, download=fetch):
             envelope = json.loads(download(url, 32768))
             # Channel is inside the signed data; verify even if it is not ours.
             candidate_channel = envelope.get('signed', {}).get('channel')
-            data = signed_manifest(envelope, config['public_key'], current, candidate_channel, config['runtime_id'])
+            data = signed_manifest(envelope, config['public_key'], current, candidate_channel, config['runtime_id'], config.get('require_source_commit', False))
             if data['version'] != release['tag_name'][1:]:
                 raise UpdateError('Tag e manifesto divergentes.')
             if data['channel'] == config['channel']:
@@ -235,7 +237,7 @@ class Updater:
                 raise UpdateError('Atualizador desativado.')
             old = self.current()
             data = signed_manifest(envelope, self.config['public_key'], old,
-                                   self.config['channel'], self.config['runtime_id'])
+                                   self.config['channel'], self.config['runtime_id'], self.config.get('require_source_commit', False))
             if not approve(data):
                 raise UpdateError('Atualização não aprovada; versão atual preservada.')
             archive_data = download(data['url'])
@@ -260,6 +262,8 @@ class Updater:
                 metadata = json.loads((payload / 'version.json').read_text())
                 if metadata.get('runtime_id') != self.config['runtime_id'] or metadata.get('channel') != self.config['channel']:
                     raise UpdateError('Identidade do payload divergente.')
+                if data.get('source_commit') and metadata.get('source_commit') != data['source_commit']:
+                    raise UpdateError('Commit do payload difere do manifesto assinado.')
                 os.replace(payload, target)
             journal = self.state / 'journal.json'
             atomic_json(self.state / 'backup.json', {'version': old})
