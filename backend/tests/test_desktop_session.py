@@ -166,3 +166,26 @@ def test_reset_requires_owned_session_and_preserves_profiles(desktop, monkeypatc
     c = client(); c.post('/api/local-session', json={})
     assert c.post('/api/local-reset', json={}).status_code == 200
     assert (tmp_path / 'reset-access').is_file() and (tmp_path / 'shutdown').is_file()
+
+
+def test_instance_proof_rejects_old_build_and_divergent_token(tmp_path, monkeypatch):
+    spec = importlib.util.spec_from_file_location('desktop_proof_test', Path(__file__).resolve().parents[2] / 'packaging/windows/desktop.py')
+    desktop = importlib.util.module_from_spec(spec); spec.loader.exec_module(desktop)
+    (tmp_path / 'state').mkdir()
+    (tmp_path / 'state/instance.json').write_text(json.dumps(dict(port=8123)))
+    (tmp_path / 'BUILD-INFO.json').write_text(json.dumps(dict(source_commit='current-build')))
+    identity = desktop.installation_id(tmp_path)
+    class Reply:
+        build = 'current-build'
+        def __enter__(self): return self
+        def __exit__(self, *args): pass
+        def read(self, size):
+            payload = f'{"c" * 64}:{identity}:0.2.0:8123:{self.build}'
+            proof = hmac.new(b'a' * 64, payload.encode(), hashlib.sha256).hexdigest()
+            return json.dumps(dict(installation=identity, version='0.2.0', port=8123, build=self.build, proof=proof)).encode()
+    monkeypatch.setattr(desktop.secrets, 'token_hex', lambda size: 'c' * 64)
+    monkeypatch.setattr(desktop.urllib.request, 'build_opener', lambda *args: SimpleNamespace(open=lambda *a, **kw: Reply()))
+    assert desktop.verify_instance(tmp_path, '0.2.0', 'a' * 64) == 'http://127.0.0.1:8123'
+    assert desktop.verify_instance(tmp_path, '0.2.0', 'b' * 64) is None
+    Reply.build = 'previous-build'
+    assert desktop.verify_instance(tmp_path, '0.2.0', 'a' * 64) is None
