@@ -217,3 +217,36 @@ auditoria, actionlint e diff check aprovados. Nova checagem visual confirma
 DUAL OK + owner errado, relatório parcial e owners não selecionados; reexecução
 final do HEAD/documentação e artifact 0.3.0 rastreável constam no PR #26.
 Oracle real do cliente não foi acessado nem declarado homologado.
+
+## Issue #27 — substituição segura pelo Setup Windows
+
+[PR #28](https://github.com/wondersonrj/huginn-ia/pull/28), base main pós-#26,
+Setup de homologação 0.3.1. [Guia de atualização/recuperação](INSTALACAO_WINDOWS.md#atualizar-instalações-anteriores--27--setup-031).
+Auditoria: AppId Inno já estável e registro HKCU suportavam in-place, mas a antiga
+ativação só preservava o apontador da versão; não recuperava o bootstrap após
+sobrescrita. A antiga limpeza recursiva na desinstalação também atingia arquivos
+não catalogados. Não executamos o desinstalador anterior: Inno substitui os arquivos
+na pasta registrada, mantendo identidade DPAPI e catálogo/atalhos.
+
+Novo preflight executado pelo runtime temporário do próprio Setup valida família,
+usuário/diretório, versão ativa e compatibilidade. Usa DPAPI/HMAC + sessão SID
+para encerrar somente a instância própria, aguarda backend/launcher e mantém lock
+até hash/health/commit ou rollback. Backup privado inclui binários substituídos,
+configurações/apontador, registro/atalhos e ciphertext DPAPI; sem exportação de
+senha/token. Falha restaura a instalação anterior; nova execução do Setup recupera
+transação pendente. Corrigido o reconhecimento de dados preservados pós-uninstall,
+sem exigir remoção manual de pastas. Versão ativa mais nova impede downgrade.
+
+Portátil compatível pode ser convertido na própria pasta quando não há instalação
+registrada; cópias em outras pastas permanecem separadas/intocadas. Não há varredura
+de discos, migração entre usuários/caminhos nem encerramento sem prova. Os perfis
+salvos permanecem; selecionar destino/confirmar PRODUÇÃO após reinício continua
+obrigatório. Manter dados é padrão no uninstall; remoção explícita inclui backup
+privado e cofre, sem limpeza recursiva de arquivos extras no diretório do programa.
+
+Testes unitários cobrem integridade, recuperação, cofre, diretório registrado,
+symlinks, downgrade ativo e HMAC forjado. CI Windows usa EXEs históricos reais
+0.2.0/0.3.0, ZIP portátil, instância ativa, backup/cópia/health, instalação quebrada,
+rollback, recuperação de interrupção, atalho/registro e uninstall keep/remove.
+Os resultados finais e artifact rastreável são registrados no PR #28. Sem merge,
+release, publicação, instalação remota, reboot ou alterações no Oracle do cliente.

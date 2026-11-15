@@ -57,15 +57,14 @@ def remove_data(root):
     if store is None:
         raise RuntimeError('Windows user vault required')
     safe_path(store.root)
-    if store.root.exists():
-        # Exact computed user/installation directory only; never request-supplied paths.
-        shutil.rmtree(store.root)
-    # Private encrypted migration backups belong to this same installation/user.
     from installer_migration import journal, BACKUP
     backup = root / BACKUP
     safe_path(backup)
     if backup.exists():
-        journal(root)  # refuse foreign/unrecognized backups
+        journal(root)  # validate every scope before deleting either vault or backup
+    if store.root.exists():
+        shutil.rmtree(store.root)
+    if backup.exists():
         shutil.rmtree(backup)
     # Keep/remove decision includes only this installation's updater preferences/state.
     state = root / 'state'

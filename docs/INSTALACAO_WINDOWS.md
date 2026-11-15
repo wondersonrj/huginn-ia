@@ -161,3 +161,90 @@ de produtos/fornecedores na UI usando um driver sintético apenas na instalaçã
 descartável de CI. O instalador disponibilizado não contém esse driver. A prova de
 identidade inclui o commit do build e é obrigatória também na primeira abertura.
 Esta evidência não confirma conectividade nem permissões de um Oracle real.
+
+## Atualizar instalações anteriores — #27 / Setup 0.3.1
+
+Execute somente o Setup novo, **no mesmo usuário Windows da instalação anterior**.
+O assistente encontra o AppId HUGINN IA no registro HKCU de 64 bits, recupera a
+pasta usada anteriormente e mostra versão ativa → nova versão. Verifique o resumo
+e clique em Instalar. Não desinstale primeiro, não use PowerShell e não mova a pasta:
+o caminho canônico é parte da identidade das conexões e do token DPAPI.
+
+O próprio Inno atualiza a instalação no mesmo diretório, mantendo o mesmo AppId,
+atalhos e um catálogo de desinstalação. Não executamos dois desinstaladores nem
+apagamos a versão anterior antes de confirmar a nova. Se HUGINN estiver aberto,
+o Setup valida desafio HMAC de instalação/versão/build com o token DPAPI e usa
+uma sessão local vinculada ao SID Windows para solicitar encerramento. Aguarda
+liberação do lock, saída do backend e do executável próprio; não usa taskkill,
+PIDs recebidos de arquivo, encerramento de serviços ou reboot. Falha de identidade
+bloqueia a migração; encerre somente seu HUGINN pela interface e tente novamente.
+
+Durante a cópia o Setup mantém um lock de SO que impede outro supervisor de
+iniciar. O launcher novo reconhece manutenção incompleta e orienta aguardar ou
+repetir o Setup. Instalações/runtime/canal incompatíveis, downgrade da versão
+ativa ou tentativa de mudar o diretório registrado são recusados preservando
+os dados. Atualização remota pendente deve ser recuperada pelo próprio HUGINN
+antes de executar o Setup; não combinamos dois journals de atualização.
+
+### Dados, backups e recuperação
+
+As conexões, senha DPAPI, token e configurações não são recriados. O cofre permanece
+em LocalAppData/HUGINN/Connections, com o mesmo usuário, entropia e identidade.
+Depois que o aplicativo reabre, selecione novamente o destino salvo; PRODUÇÃO
+continua exigindo confirmação explícita. Não é preciso redigitar a senha salva.
+O health check da migração não conecta ao Oracle nem altera permissões ou dados.
+
+Antes de copiar arquivos, o Setup cria `.installer-backup` na própria instalação,
+com ACL privada do usuário/SYSTEM. Guarda os binários que serão substituídos,
+configurações/apontador, registro e atalhos, mais cópias dos blobs já criptografados
+e metadados do cofre. Não exporta senha/token em claro. Conserva somente o último
+backup; a migração seguinte prepara outro antes de alterar a instalação.
+
+Todos os novos arquivos catalogados são verificados por SHA256 e a nova aplicação
+precisa confirmar sua versão HTTP em uma porta própria de teste. Somente então
+concluímos a transação. Falha de cópia/integridade/saúde restaura binários,
+apontador, registro, atalhos e dados anteriores, sem remover arquivos extras do
+usuário. É possível abrir novamente o HUGINN anterior pelo atalho após rollback.
+
+Se faltar energia ou o Setup for interrompido, execute o Setup novamente **na
+mesma pasta/usuário**. Ele recupera a transação pendente antes de fazer nova cópia.
+Se o backup estiver corrompido, sem espaço ou bloqueado por outro processo, a
+recuperação é recusada; preserve a pasta e procure suporte. Não apague o backup,
+state, runtime ou versões e não reinicie o Windows para tentar liberar arquivos.
+Backup com identidade/SID diferente, junction/symlink, UNC e unidade de rede são
+recusados. Não copie o backup para outro usuário ou caminho.
+
+Não envie `.installer-backup`, cofre, logs completos ou arquivos de configuração
+ao GitHub/chat: podem conter metadados privados e ciphertext. Informações de
+suporte devem limitar-se à versão e ao código fixo exibido pelo assistente.
+
+### Cópias portáteis e desinstalação
+
+Não pesquisamos nem removemos cópias em discos/pastas arbitrários. Uma instalação
+registrada tem prioridade e é atualizada onde está. Uma cópia portátil em outra
+pasta continua separada e intocada. Sem instalação registrada, é possível selecionar
+no assistente a própria pasta portátil de família/runtime compatíveis; a conversão
+no mesmo local mantém a identidade DPAPI, se já existente. Portáteis antigos sem
+protocolo de identidade/token persistido devem ser fechados pelo seu próprio
+inicializador antes de converter. Não inventamos credenciais que não estavam
+salvas nem migramos segredos de outro usuário/instalação.
+
+Na desinstalação final, **manter dados** continua sendo o padrão. Mantém cofre,
+preferências e backup privado para reinstalar na mesma pasta/usuário. O Setup
+reconhece esse estado mesmo que só tenham restado configurações, cache e arquivos
+do usuário. Remover dados é uma decisão explícita e remove também o backup privado.
+O desinstalador usa os arquivos catalogados pelo Inno: não faz mais remoção
+recursiva de runtime/versions, evitando apagar arquivos extras do usuário. Pastas,
+cache Python e arquivos não catalogados podem permanecer; não são outra instalação
+ativa. A opção de remover dados nunca apaga o Oracle ou documentos extras.
+
+### Validação
+
+CI compila EXEs dos commits reais de 0.2.0 e 0.3.0 e testa atualização/reinstalação
+para 0.3.1. Também converte um ZIP portátil 0.2.0 compatível, preservando uma segunda
+cópia portátil. Com DPAPI/SID reais verifica bytes de perfis/token, preferências,
+atalhos/registro, descriptor forjado apontando para serviço alheio, instância ativa,
+falha de um EXE depois da cópia, rollback e recuperação de transação interrompida.
+Desinstala mantendo/removendo dados e confirma preservação de arquivos extras e
+serviço na porta 8000. Consultas Oracle usam driver sintético somente na cópia
+descartável de CI; não comprovam o Oracle do cliente. Runs/artifact finais no PR #28.

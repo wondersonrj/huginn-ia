@@ -91,6 +91,14 @@ def case(args):
                 from app.connection_store import current_store
                 vault = current_store().root
                 before = snapshot(vault)
+                # A forged descriptor pointing to a foreign service must never trigger a stop/copy.
+                descriptor = (root / 'state/instance.json').read_bytes()
+                bootstrap_before = (root / 'bootstrap.json').read_bytes()
+                (root / 'state/instance.json').write_text('{"port":8000}')
+                setup(args.installer, explicit=args.case == 'portable', success=False)
+                assert primary.poll() is None and (root / 'bootstrap.json').read_bytes() == bootstrap_before
+                assert snapshot(vault) == before
+                (root / 'state/instance.json').write_bytes(descriptor)
                 # No /DIR for an installed family: registry detection must reuse it.
                 setup(args.installer, explicit=args.case == 'portable')
                 assert primary.wait(timeout=30) == 0  # authenticated graceful stop, never kill

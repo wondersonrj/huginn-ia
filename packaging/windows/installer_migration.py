@@ -11,6 +11,7 @@ import os
 from pathlib import Path
 import re
 import shutil
+import socket
 import stat
 import sys
 import time
@@ -224,7 +225,18 @@ def lock_available(root):
 
 
 def stop_owned(root):
-    if lock_available(root): return
+    if lock_available(root):
+        descriptor = root / 'state/instance.json'
+        if not descriptor.exists(): return
+        port = read_json(descriptor, 2048)['port']
+        if type(port) is not int or not 1024 <= port <= 65535: raise MigrationError('identity_unconfirmed')
+        try:
+            connection = socket.create_connection(('127.0.0.1', port), timeout=.3)
+        except ConnectionRefusedError:
+            return
+        else:
+            connection.close()
+        # A backend may outlive its supervisor. Still require proof before stopping it.
     # No arbitrary PID handling. A random challenge authenticates this exact installation.
     cfg = read_json(root / 'bootstrap.json')
     version = read_json(root / 'state/current.json')['version']
@@ -259,9 +271,19 @@ def stop_owned(root):
         request = urllib.request.Request(url + '/api/' + endpoint, data=b'{}', headers={'Content-Type': 'application/json', 'Origin': url})
         with opener.open(request, timeout=3) as response:
             if response.status != 200: raise MigrationError('shutdown_refused')
+    atomic(root / 'state/stop', b'')  # graceful child watch, only after HMAC + SID-authenticated API
     for _ in range(150):
         if lock_available(root):
             try:
+                # A released supervisor lock alone does not prove its child exited.
+                try:
+                    connection = socket.create_connection(('127.0.0.1', port), timeout=.3)
+                except ConnectionRefusedError:
+                    connection = None
+                else:
+                    connection.close()
+                    time.sleep(.2)
+                    continue
                 executable = root / 'HUGINN-IA.exe'
                 if executable.exists():
                     with executable.open('r+b'): pass  # wait for our native wrapper to unmap; never terminate it

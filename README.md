@@ -100,3 +100,10 @@ A seleção é explícita e as consultas continuam somente leitura.
 HUGINN-IA-Setup.exe por usuário, runtime incluído, token DPAPI automático e
 configuração Oracle na interface. PR incremental sobre main após o squash de #22, sem merge
 ou release automática; assinatura Authenticode ainda indisponível.
+
+## Atualizar uma instalação existente (#27)
+
+O Setup encontra a instalação do mesmo usuário e substitui os arquivos no mesmo
+diretório, preservando perfis/token DPAPI e configurações. Não desinstale antes.
+[Backup, instância ativa, rollback, portáteis e recuperação](docs/INSTALACAO_WINDOWS.md#atualizar-instalações-anteriores--27--setup-031).
+Sem reiniciar o Windows, merge ou release automática.

@@ -141,6 +141,8 @@ def test_shutdown_requires_hmac_then_authenticated_session_never_a_pid(migration
         calls.append(request if isinstance(request, str) else request.full_url)
         if not isinstance(request, str): assert request.data == b'{}' and request.headers['Origin'] == 'http://127.0.0.1:8123'
         return Response()
+    def refused(*args, **kwargs): raise ConnectionRefusedError()
+    monkeypatch.setattr(m.socket, 'create_connection', refused)
     monkeypatch.setattr(m.urllib.request, 'build_opener', lambda *args: SimpleNamespace(open=open_request))
     if forged:
         with pytest.raises(m.MigrationError, match='identity_unconfirmed'): m.stop_owned(root)
