@@ -1,7 +1,7 @@
 name: Windows installer homologation
 on:
   pull_request:
-    branches: [main, feature/issue-21-secure-connections]
+    branches: [main]
   push:
     branches: [main]
   workflow_dispatch:

@@ -108,9 +108,9 @@ Não houve merge, release, alteração de produção ou homologação em banco r
 ## Instalador e primeira execução — #23, dependências #20/#21
 
 [Guia final de instalação e suporte](INSTALACAO_WINDOWS.md). Implementação
-incremental sobre o PR #22 ainda aberto, sem duplicar nem integrar o cofre.
-A revisão deve respeitar a ordem #22 → PR instalador e retargetar para main
-somente após integração humana da dependência, com CI revalidada.
+inicialmente empilhada sobre o PR #22. Após seu squash na main, o incremento
+do instalador foi reaplicado sobre a main, sem duplicar os commits do cofre.
+O PR #24 agora tem main como base e requer CI revalidada nessa composição.
 
 O MVP acrescenta Inno Setup por usuário, launcher Win32 nativo, atalhos,
 desinstalação com manter/remover, token aleatório DPAPI automático, sessão
@@ -126,7 +126,7 @@ remoção. Homologação Oracle real continua pendente. IDs e artifacts do run
 final ficam na descrição do PR; não se presume execução por abrir issue.
 
 Entrega em revisão: [PR #24](https://github.com/wondersonrj/huginn-ia/pull/24),
-baseado no [PR #22](https://github.com/wondersonrj/huginn-ia/pull/22).
+reutilizando o [PR #22](https://github.com/wondersonrj/huginn-ia/pull/22), já integrado por squash.
 Validação local: 286 testes aprovados, dois exclusivos Windows ignorados no Linux;
 build TypeScript/Vite, auditoria npm (zero vulnerabilidades) e actionlint aprovados.
 A CI Windows validou onboarding, DPAPI, cookies/SID, múltiplas aberturas, upgrade e
@@ -167,3 +167,15 @@ matriz negativa descrita acima. [Artifact homologação](https://github.com/wond
 com EXE, SHA256 e INSTALLER-INFO, sem Authenticode. O PR #24 registra também a
 reexecução após esta atualização documental. Não houve Oracle real, merge,
 release, mudança de proteções ou publicação em produção.
+
+### Consolidação pós-squash do PR #22
+
+Base atual: main `7cbf8e2918de80d7a7a2ac848ea1ee55ee294808`. Reaplicados
+somente os nove commits de instalador/estabilização posteriores ao antigo head
+`03781bd8` da #21. A árvore do squash era idêntica àquela dependência; a
+reaplicação não apresentou conflitos. Os commits originais da #21 não integram
+o histórico incremental do PR #24. Removido o gatilho da branch intermediária
+da CI Windows: revisão de PR agora usa main. Documentos deixam de exigir
+integração/retarget pendentes. Resultados da revalidação Windows e artifact
+consolidado são registrados no PR #24; as evidências anteriores acima são
+históricas, não substituem esta reexecução. Nenhum merge/release autorizado.

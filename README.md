@@ -98,5 +98,5 @@ A seleção é explícita e as consultas continuam somente leitura.
 
 [Instalação guiada, abertura com um clique e suporte](docs/INSTALACAO_WINDOWS.md):
 HUGINN-IA-Setup.exe por usuário, runtime incluído, token DPAPI automático e
-configuração Oracle na interface. PR incremental dependente de #22, sem merge
+configuração Oracle na interface. PR incremental sobre main após o squash de #22, sem merge
 ou release automática; assinatura Authenticode ainda indisponível.

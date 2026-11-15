@@ -62,3 +62,8 @@ exige prova HMAC da instância; porta de terceiros é preservada.
 [Limites, testes e manutenção](../INSTALACAO_WINDOWS.md) registram ausência de
 Authenticode, família de runtime, artifacts pré/pós-merge e Oracle real pendente.
 Nenhuma credencial/certificado foi solicitada ou política de produção alterada.
+
+Consolidação #23: #22 integrado por squash em main (`7cbf8e2`). Reaplicados
+apenas os commits do instalador no PR #24, sem conflitos e sem duplicação do
+cofre. Base de revisão/CI passa a main. Revalidação e artifact consolidado
+registrados no PR #24; sem merge, release ou publicação em produção.

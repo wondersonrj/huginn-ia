@@ -2,10 +2,12 @@
 
 ## Estado e dependências
 
-Este PR é incremental e depende do PR #22 (issue #21), ainda aberto na consulta
-inicial. A branch/PR usa #22 como base para não duplicar o cofre e as conexões.
-**Não integrar fora de ordem:** revisar/validar #22, depois retargetar este PR para
-main e validar de novo. Não foi feito merge de nenhuma dependência.
+O PR #22 (issue #21) foi integrado por squash na main em
+`7cbf8e2918de80d7a7a2ac848ea1ee55ee294808`. O PR #24 foi reaplicado sobre
+essa main, contendo somente o incremento do instalador e sua estabilização.
+O cofre e as conexões já integrados são reutilizados, sem duplicar seus commits.
+A base do PR é main; a CI Windows e o instalador devem ser revalidados nessa base.
+Nenhum merge ou release é executado por este trabalho.
 
 A #20 pede entrega rastreável após merge. O workflow Windows installer homologation
 produz o instalador tanto em PR quanto em push na main, com commit/canal/checksum.
