@@ -157,3 +157,13 @@ Sem conexão selecionada após reiniciar, o cofre gerenciado impede fallback dem
 O evento sanitizado `identity_rejected` permite identificar a recusa sem divulgar
 segredos. Resultados finais e artifact da execução estão no PR #24, atualizado
 incrementalmente em vez de abrir um PR duplicado sobre o mesmo trabalho.
+
+Evidência da estabilização: [run Windows 43676264209](https://github.com/wondersonrj/huginn-ia/actions/runs/43676264209),
+head `75ba14f06382ae668065a6ecbaa5fb04b9d5281d`, merge de teste
+`67ade67ef24582209009d5ebd3a1b27fdd79de0e`: **288 aprovados, 1 ignorado** no
+Windows; **287 aprovados, 2 ignorados** no Linux. Backend, frontend e auditoria
+aprovados. Ambos os smoke tests emitiram PASS, incluindo consultas na UI e
+matriz negativa descrita acima. [Artifact homologação](https://github.com/wondersonrj/huginn-ia/actions/runs/43676264209/artifacts/14145559304)
+com EXE, SHA256 e INSTALLER-INFO, sem Authenticode. O PR #24 registra também a
+reexecução após esta atualização documental. Não houve Oracle real, merge,
+release, mudança de proteções ou publicação em produção.
