@@ -110,3 +110,29 @@ def test_foreign_or_forged_service_never_opens_existing_instance(tmp_path):
 def test_portable_legacy_does_not_enable_anonymous_session(monkeypatch):
     monkeypatch.setattr(session, 'automatic', lambda: False)
     assert client().post('/api/local-session', json={}).status_code == 404
+
+
+@pytest.mark.parametrize('endpoint', ['testar', 'diagnostico'])
+def test_legacy_diagnostic_valid_origin_is_not_a_server_error(desktop, endpoint):
+    response = client().post('/api/oracle/' + endpoint, json={}, headers={'Authorization': 'Bearer ' + 'a' * 64})
+    assert response.status_code == 422
+
+
+@pytest.mark.parametrize('healthy', [True, False])
+def test_installer_activation_preserves_previous_pointer_on_failure(tmp_path, healthy):
+    spec = importlib.util.spec_from_file_location('installer_state_fixture', Path(__file__).parents[2] / 'packaging/windows/installer_state.py')
+    value = importlib.util.module_from_spec(spec); spec.loader.exec_module(value)
+    (tmp_path / 'state').mkdir()
+    (tmp_path / 'bootstrap.json').write_text(json.dumps({'version': '0.2.1'}))
+    pointer = tmp_path / 'state/current.json'; pointer.write_text(json.dumps({'version': '0.2.0'}))
+    class Supervisor:
+        def __init__(self, *args): self.socket = None
+        def start(self, version):
+            assert version == '0.2.1'
+            if not healthy: raise RuntimeError('Synthetic unhealthy application')
+        def stop(self): pass
+    with patch('launcher.Supervisor', Supervisor):
+        if healthy: value.activate(tmp_path)
+        else:
+            with pytest.raises(RuntimeError): value.activate(tmp_path)
+    assert json.loads(pointer.read_text())['version'] == ('0.2.1' if healthy else '0.2.0')

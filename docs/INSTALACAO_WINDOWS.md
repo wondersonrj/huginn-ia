@@ -141,3 +141,8 @@ Para suporte, informe versão/canal/build, mensagem sanitizada e etapa que falho
 Não anexe token, Cookie/Authorization, blobs DPAPI, senha, DSN ou dados de cliente.
 Acesso Windows indisponível deve ser resolvido no próprio usuário/instalação;
 não executar como SYSTEM, desabilitar controles ou reiniciar o servidor.
+
+O primeiro ensaio Windows compilou MSVC/Inno com sucesso e detectou uma regressão
+no diagnóstico legado com Origin válido (conflito de nome de função). A correção
+preserva a allowlist e ganhou teste específico; artifacts não são entregues
+a partir daquele run falho. Os IDs finais aprovados ficam no PR.

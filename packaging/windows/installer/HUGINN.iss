@@ -53,6 +53,10 @@ Name: "{autodesktop}\HUGINN IA"; Filename: "{app}\HUGINN-IA.exe"; WorkingDir: "{
 [Run]
 Filename: "{app}\HUGINN-IA.exe"; Description: "Abrir HUGINN IA e configurar a conexao"; Flags: nowait postinstall skipifsilent
 
+[UninstallDelete]
+Type: filesandordirs; Name: "{app}\runtime"
+Type: filesandordirs; Name: "{app}\versions"
+
 [Code]
 var PreserveData: Boolean;
 function PrepareToInstall(var NeedsRestart: Boolean): String;

@@ -14,7 +14,7 @@ from app.oracle_connector import OracleConfig, check_connection, connection_diag
 from app.schema_diagnostic import inspect_schema
 from app.winthor_api import router as winthor_router, authorize, record
 from app.connections_api import router as connections_router
-from app.local_session import router as session_router, app_port, origin
+from app.local_session import router as session_router, app_port, origin as desktop_origin
 import time
 import uuid
 
@@ -68,7 +68,7 @@ async def testar_oracle(request: Request):
     origin = request.headers.get("origin")
     if origin and origin not in {
         "http://localhost:5173", "http://127.0.0.1:5173",
-        f"http://localhost:{app_port()}", origin(),
+        f"http://localhost:{app_port()}", desktop_origin(),
     }:
         raise HTTPException(403, "Origem não permitida")
     try:
@@ -95,7 +95,7 @@ async def diagnostico_oracle(request: Request):
     origin = request.headers.get("origin")
     if origin and origin not in {
         "http://localhost:5173", "http://127.0.0.1:5173",
-        f"http://localhost:{app_port()}", origin(),
+        f"http://localhost:{app_port()}", desktop_origin(),
     }:
         raise HTTPException(403, "Origem não permitida")
     try:
@@ -220,7 +220,7 @@ def update_status():
 async def request_update(action: str, request: Request):
     # Fixed queue messages only. No process execution, paths, URLs or shell input.
     if (not request.client or request.client.host not in {"127.0.0.1", "::1"}
-            or request.headers.get("origin") not in {origin(), f"http://localhost:{app_port()}"}
+            or request.headers.get("origin") not in {desktop_origin(), f"http://localhost:{app_port()}"}
             or request.headers.get("host") not in {f"127.0.0.1:{app_port()}", f"localhost:{app_port()}"}
             or request.headers.get("content-type", "").split(";")[0] != "application/json"):
         raise HTTPException(403, "Atualizações exigem a interface local autorizada")
