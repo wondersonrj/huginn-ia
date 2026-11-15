@@ -11,8 +11,8 @@ sys.path.insert(0, str(ROOT / 'backend'))
 
 
 def main():
+    import os
     import uvicorn
-    from app.main import app
 
     address = ('127.0.0.1', 8000)
     if '--shared-socket' in sys.argv:
@@ -33,6 +33,9 @@ def main():
             sock.close()
             print('Nao foi possivel abrir a porta 8000. Feche outra instancia do HUGINN ou o programa que usa essa porta.')
             return 1
+    address = sock.getsockname()
+    os.environ['HUGINN_APP_PORT'] = str(address[1])
+    from app.main import app
     server = uvicorn.Server(uvicorn.Config(app, host=address[0], port=address[1], access_log=False, timeout_graceful_shutdown=10))
     if '--stop-file' in sys.argv:
         stop_file = Path(sys.argv[sys.argv.index('--stop-file') + 1])
@@ -48,13 +51,13 @@ def main():
         for _ in range(300):
             if server.started:
                 if '--no-browser' not in sys.argv:
-                    webbrowser.open('http://127.0.0.1:8000')
+                    webbrowser.open(f'http://127.0.0.1:{address[1]}')
                 return
             if server.should_exit:
                 return
             time.sleep(0.1)
 
-    print('HUGINN IA - http://127.0.0.1:8000')
+    print(f'HUGINN IA - http://127.0.0.1:{address[1]}')
     print('Mantenha esta janela aberta. Para encerrar, pressione Ctrl+C.')
     print('Oracle: somente leitura; perfis salvos com protecao Windows por usuario.')
     threading.Thread(target=open_when_ready, daemon=True).start()

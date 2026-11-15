@@ -104,3 +104,78 @@ preservados. Testes Windows verificam DPAPI/ACL e reinício sem Oracle real.
 Registro issue → branch → PR e evidências finais constam na descrição do PR que
 referencia #21; [histórico de decisões](FABRICA_APLICACOES/HISTORICO_COMPLETO.md).
 Não houve merge, release, alteração de produção ou homologação em banco real.
+
+## Instalador e primeira execução — #23, dependências #20/#21
+
+[Guia final de instalação e suporte](INSTALACAO_WINDOWS.md). Implementação
+inicialmente empilhada sobre o PR #22. Após seu squash na main, o incremento
+do instalador foi reaplicado sobre a main, sem duplicar os commits do cofre.
+O PR #24 agora tem main como base e requer CI revalidada nessa composição.
+
+O MVP acrescenta Inno Setup por usuário, launcher Win32 nativo, atalhos,
+desinstalação com manter/remover, token aleatório DPAPI automático, sessão
+HttpOnly vinculada ao SID Windows do cliente, porta gerenciada e reabertura
+por prova HMAC de instalação/versão. Não exige PowerShell/Python/Node/OCI ou
+reboot do operador, nem mata serviços alheios. Oracle permanece read-only.
+
+A #20 é atendida por artifacts rastreáveis de PR e push/main, distinguindo
+pré-merge de pós-merge. Não há Authenticode autorizado: o EXE é de homologação
+não assinado, sem release/tag/publicação. SHA256 não substitui assinatura.
+Windows CI exercita instalação/uso/reinstalação/upgrade/reabertura/conflitos e
+remoção. Homologação Oracle real continua pendente. IDs e artifacts do run
+final ficam na descrição do PR; não se presume execução por abrir issue.
+
+Entrega em revisão: [PR #24](https://github.com/wondersonrj/huginn-ia/pull/24),
+reutilizando o [PR #22](https://github.com/wondersonrj/huginn-ia/pull/22), já integrado por squash.
+Validação local: 286 testes aprovados, dois exclusivos Windows ignorados no Linux;
+build TypeScript/Vite, auditoria npm (zero vulnerabilidades) e actionlint aprovados.
+A CI Windows validou onboarding, DPAPI, cookies/SID, múltiplas aberturas, upgrade e
+preservação de terceiro na porta 8000; o ciclo final e artifact rastreável ficam
+registrados no PR. Aberturas concorrentes aguardam locks temporários sem recriar
+um token corrompido. O teste de desinstalação usa o modo síncrono do Inno para
+não reinstalar enquanto seu processo temporário ainda remove arquivos.
+
+### Estabilização #23 — complemento de 15/11/2026
+
+O primeiro smoke instalado parava no listener indisponível: gerar EXE e testar
+falha de rede não comprovava DUAL/metadados/consultas na UI. O smoke agora instala
+o artifact original, confirma a falha Oracle real sem driver substituído e só
+então adiciona um double de driver na **cópia descartável** instalada da versão de
+upgrade. Esse arquivo não entra no pacote nem existe flag de ativação no produto.
+A execução passa por DPAPI real, sessão Windows/SID real, UI, backend em modo
+Oracle (mesmo herdando `demo`), DUAL, metadados e binds CODPROD/PCPRODUT e
+CODFORNEC/PCFORNEC. O double recusa SQL inesperado e commit. Não é banco Oracle
+real: homologação no ambiente autorizado continua pendente, sem solicitar senhas.
+
+A matriz cobre senha inválida, listener indisponível, timeout de conexão/consulta,
+owner incorreto, ausência de SELECT, troca de conexão/contexto antigo, senha
+removida, reinício, upgrade/rollback e desinstalação. O teste herda propositalmente
+um token curto; o launcher deve substituí-lo pelo token DPAPI de 256 bits. A prova
+HMAC é verificada também na primeira abertura e passa a vincular o commit do build:
+backend com token divergente ou pacote antigo não pode ser aberto silenciosamente.
+Sem conexão selecionada após reiniciar, o cofre gerenciado impede fallback demo.
+O evento sanitizado `identity_rejected` permite identificar a recusa sem divulgar
+segredos. Resultados finais e artifact da execução estão no PR #24, atualizado
+incrementalmente em vez de abrir um PR duplicado sobre o mesmo trabalho.
+
+Evidência da estabilização: [run Windows 43676264209](https://github.com/wondersonrj/huginn-ia/actions/runs/43676264209),
+head `75ba14f06382ae668065a6ecbaa5fb04b9d5281d`, merge de teste
+`67ade67ef24582209009d5ebd3a1b27fdd79de0e`: **288 aprovados, 1 ignorado** no
+Windows; **287 aprovados, 2 ignorados** no Linux. Backend, frontend e auditoria
+aprovados. Ambos os smoke tests emitiram PASS, incluindo consultas na UI e
+matriz negativa descrita acima. [Artifact homologação](https://github.com/wondersonrj/huginn-ia/actions/runs/43676264209/artifacts/14145559304)
+com EXE, SHA256 e INSTALLER-INFO, sem Authenticode. O PR #24 registra também a
+reexecução após esta atualização documental. Não houve Oracle real, merge,
+release, mudança de proteções ou publicação em produção.
+
+### Consolidação pós-squash do PR #22
+
+Base atual: main `7cbf8e2918de80d7a7a2ac848ea1ee55ee294808`. Reaplicados
+somente os nove commits de instalador/estabilização posteriores ao antigo head
+`03781bd8` da #21. A árvore do squash era idêntica àquela dependência; a
+reaplicação não apresentou conflitos. Os commits originais da #21 não integram
+o histórico incremental do PR #24. Removido o gatilho da branch intermediária
+da CI Windows: revisão de PR agora usa main. Documentos deixam de exigir
+integração/retarget pendentes. Resultados da revalidação Windows e artifact
+consolidado são registrados no PR #24; as evidências anteriores acima são
+históricas, não substituem esta reexecução. Nenhum merge/release autorizado.

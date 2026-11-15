@@ -14,6 +14,7 @@ from app.oracle_connector import OracleConfig, check_connection, connection_diag
 from app.schema_diagnostic import inspect_schema
 from app.winthor_api import router as winthor_router, authorize, record
 from app.connections_api import router as connections_router
+from app.local_session import router as session_router, app_port, origin as desktop_origin
 import time
 import uuid
 
@@ -21,6 +22,7 @@ app = FastAPI(title="HUGINN IA API", version="0.1.0")
 app.add_middleware(CORSMiddleware, allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"], allow_credentials=False, allow_methods=["GET", "POST"], allow_headers=["*"])
 app.include_router(winthor_router)
 app.include_router(connections_router)
+app.include_router(session_router)
 
 
 @app.middleware("http")
@@ -66,7 +68,7 @@ async def testar_oracle(request: Request):
     origin = request.headers.get("origin")
     if origin and origin not in {
         "http://localhost:5173", "http://127.0.0.1:5173",
-        "http://localhost:8000", "http://127.0.0.1:8000",
+        f"http://localhost:{app_port()}", desktop_origin(),
     }:
         raise HTTPException(403, "Origem não permitida")
     try:
@@ -93,7 +95,7 @@ async def diagnostico_oracle(request: Request):
     origin = request.headers.get("origin")
     if origin and origin not in {
         "http://localhost:5173", "http://127.0.0.1:5173",
-        "http://localhost:8000", "http://127.0.0.1:8000",
+        f"http://localhost:{app_port()}", desktop_origin(),
     }:
         raise HTTPException(403, "Origem não permitida")
     try:
@@ -218,8 +220,8 @@ def update_status():
 async def request_update(action: str, request: Request):
     # Fixed queue messages only. No process execution, paths, URLs or shell input.
     if (not request.client or request.client.host not in {"127.0.0.1", "::1"}
-            or request.headers.get("origin") not in {"http://127.0.0.1:8000", "http://localhost:8000"}
-            or request.headers.get("host") not in {"127.0.0.1:8000", "localhost:8000"}
+            or request.headers.get("origin") not in {desktop_origin(), f"http://localhost:{app_port()}"}
+            or request.headers.get("host") not in {f"127.0.0.1:{app_port()}", f"localhost:{app_port()}"}
             or request.headers.get("content-type", "").split(";")[0] != "application/json"):
         raise HTTPException(403, "Atualizações exigem a interface local autorizada")
     try:

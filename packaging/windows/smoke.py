@@ -28,6 +28,7 @@ def smoke(package, interpreter=None):
         assert not list(root.rglob('.env'))
         assert not list(root.rglob('*.dpapi'))
         assert not list(root.rglob('profiles.json'))
+        assert not list(root.rglob('local-token.bin'))
         # Runtime pip includes public CA bundles, not database credentials.
         assert not list(root.rglob('*.key'))
         for module in ['oracledb', 'cryptography', 'pydantic_core', 'fastapi', 'uvicorn']:

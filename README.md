@@ -93,3 +93,10 @@ O [gerenciador local de conexões](docs/CONEXOES_SALVAS.md) cadastra, edita, tes
 seleciona e exclui perfis TESTE/PRODUÇÃO com senha protegida por DPAPI no usuário
 Windows. Após reiniciar, selecione a conexão salva sem reentrar a senha Oracle.
 A seleção é explícita e as consultas continuam somente leitura.
+
+## Instalador Windows de homologação (#23)
+
+[Instalação guiada, abertura com um clique e suporte](docs/INSTALACAO_WINDOWS.md):
+HUGINN-IA-Setup.exe por usuário, runtime incluído, token DPAPI automático e
+configuração Oracle na interface. PR incremental sobre main após o squash de #22, sem merge
+ou release automática; assinatura Authenticode ainda indisponível.

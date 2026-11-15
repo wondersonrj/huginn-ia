@@ -4,7 +4,7 @@ export type Connection = { id: string; revision: string; name: string; environme
 type Fields = { name: string; environment: 'TESTE' | 'PRODUCAO'; host: string; port: string; service: string; user: string; owner: string }
 const empty: Fields = { name: '', environment: 'TESTE', host: '', port: '1521', service: '', user: '', owner: '' }
 
-export function ConnectionManager({ token, onChange }: { token: string; onChange: (connection: Connection | null) => void }) {
+export function ConnectionManager({ token, onChange, automatic = false }: { token: string; onChange: (connection: Connection | null) => void; automatic?: boolean }) {
   const [profiles, setProfiles] = useState<Connection[]>([])
   const [supported, setSupported] = useState<boolean | null>(null)
   const [active, setActive] = useState<Connection | null>(null)
@@ -22,6 +22,7 @@ export function ConnectionManager({ token, onChange }: { token: string; onChange
     setProfiles([]); setSupported(null); setActive(null); setSource(''); setFields(empty)
     setEditing(null); setPassword(''); setMessage(''); setError(''); setBusy(false)
   }, [token])
+  useEffect(() => { if (automatic) void execute('list') }, [automatic])
   useEffect(() => () => { controller.current?.abort() }, [])
 
   async function execute(action: string, body: object = {}) {
@@ -34,7 +35,7 @@ export function ConnectionManager({ token, onChange }: { token: string; onChange
     setBusy(true); setError(''); setMessage('')
     async function post(path: string, data: object) {
       const response = await fetch(`/api/connections/${path}`, { method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        headers: { 'Content-Type': 'application/json', ...(automatic ? {} : { Authorization: `Bearer ${token}` }) },
         body: JSON.stringify(data), cache: 'no-store', signal })
       const result = await response.json()
       if (!response.ok) throw new Error(typeof result.detail === 'string' ? result.detail : 'Operação indisponível.')
@@ -77,7 +78,7 @@ export function ConnectionManager({ token, onChange }: { token: string; onChange
   return <section className="connection-manager" aria-labelledby="connection-manager-title">
     <h3 id="connection-manager-title">Conexões Oracle salvas</h3>
     <p>Windows: senha protegida para este usuário e instalação. Seleção obrigatória após reiniciar. O teste é pontual e não mantém conexão aberta.</p>
-    <button className="oracle-test" type="button" disabled={busy || token.length < 32} onClick={() => { void execute('list') }}>Carregar conexões salvas</button>
+    <button className="oracle-test" type="button" disabled={busy || (!automatic && token.length < 32)} onClick={() => { void execute('list') }}>Carregar conexões salvas</button>
     {supported === false && <p className="notice">Proteção Windows indisponível neste sistema. Nenhuma senha será persistida; use a configuração local por ambiente.</p>}
     {supported && <>
       <p className={active?.environment === 'PRODUCAO' ? 'production-destination' : 'notice'} role="status">

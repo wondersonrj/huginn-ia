@@ -49,3 +49,21 @@ destino após troca/edição. [Guia técnico](../CONEXOES_SALVAS.md) registra li
 recuperação e critérios de validação. CI do PR distingue mocks Linux, DPAPI/ACL
 nativos Windows e homologação Oracle real ainda pendente. Não se inventa teste
 em cliente nem se conclui a #10 apenas por manter este registro.
+
+## #23 — instalador/onboarding sem comandos
+
+Relato do operador em #21: token de 31 caracteres rejeitado, alteração posterior
+de ambiente não adotada e segunda abertura com conflito 8000. O encaminhamento
+#23 autorizou instalador MVP e coordenação com #20/#21 sem merge/release.
+Decisão: PR dependente de #22, instalador por usuário e token DPAPI automático;
+Cookie efêmero HttpOnly depende de SID do peer TCP, não só Origin. Reabertura
+exige prova HMAC da instância; porta de terceiros é preservada.
+
+[Limites, testes e manutenção](../INSTALACAO_WINDOWS.md) registram ausência de
+Authenticode, família de runtime, artifacts pré/pós-merge e Oracle real pendente.
+Nenhuma credencial/certificado foi solicitada ou política de produção alterada.
+
+Consolidação #23: #22 integrado por squash em main (`7cbf8e2`). Reaplicados
+apenas os commits do instalador no PR #24, sem conflitos e sem duplicação do
+cofre. Base de revisão/CI passa a main. Revalidação e artifact consolidado
+registrados no PR #24; sem merge, release ou publicação em produção.
