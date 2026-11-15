@@ -124,3 +124,13 @@ não assinado, sem release/tag/publicação. SHA256 não substitui assinatura.
 Windows CI exercita instalação/uso/reinstalação/upgrade/reabertura/conflitos e
 remoção. Homologação Oracle real continua pendente. IDs e artifacts do run
 final ficam na descrição do PR; não se presume execução por abrir issue.
+
+Entrega em revisão: [PR #24](https://github.com/wondersonrj/huginn-ia/pull/24),
+baseado no [PR #22](https://github.com/wondersonrj/huginn-ia/pull/22).
+Validação local: 286 testes aprovados, dois exclusivos Windows ignorados no Linux;
+build TypeScript/Vite, auditoria npm (zero vulnerabilidades) e actionlint aprovados.
+A CI Windows validou onboarding, DPAPI, cookies/SID, múltiplas aberturas, upgrade e
+preservação de terceiro na porta 8000; o ciclo final e artifact rastreável ficam
+registrados no PR. Aberturas concorrentes aguardam locks temporários sem recriar
+um token corrompido. O teste de desinstalação usa o modo síncrono do Inno para
+não reinstalar enquanto seu processo temporário ainda remove arquivos.

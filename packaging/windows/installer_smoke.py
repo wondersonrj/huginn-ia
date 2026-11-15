@@ -111,11 +111,13 @@ def run(installer, upgrade=None):
                 page.once('dialog', lambda d: d.accept()); page.get_by_role('button', name='Encerrar HUGINN', exact=True).click()
                 assert primary.wait(timeout=30) == 0
                 browser.close()
+            # Inno normally spawns a temporary uninstaller and exits early. /_?=
+            # runs synchronously in place so reinstall cannot race its cleanup.
             uninstaller = root / 'unins000.exe'
-            assert subprocess.run([str(uninstaller), '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART'], env=env, timeout=120).returncode == 0
+            assert subprocess.run([str(uninstaller), '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART', '/_?=' + str(root)], env=env, timeout=120).returncode == 0
             assert vault.exists()  # silent/default removal keeps data
             assert install(installer).returncode == 0
-            assert subprocess.run([str(root / 'unins000.exe'), '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART', '/REMOVEDATA=1'], env=env, timeout=120).returncode == 0
+            assert subprocess.run([str(root / 'unins000.exe'), '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART', '/REMOVEDATA=1', '/_?=' + str(root)], env=env, timeout=120).returncode == 0
             assert not vault.exists()
             with urllib.request.urlopen('http://127.0.0.1:8000') as response:
                 assert response.read() == b'FOREIGN-SERVICE'
