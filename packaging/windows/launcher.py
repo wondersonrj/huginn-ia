@@ -15,7 +15,7 @@ import urllib.request
 
 ROOT = Path(__file__).resolve().parent
 sys.path.insert(0, str(ROOT))
-from desktop import access_token, app_mutex, installation_id, show_error, verify_instance, recovery_confirmed
+from desktop import access_token, app_mutex, installation_id, show_error, verify_instance, recovery_confirmed, diagnostic
 from updater import Updater, UpdateError, atomic_json, discover, exclusive_lock
 
 
@@ -109,6 +109,7 @@ class Supervisor:
                 with urllib.request.urlopen(self.url + '/api/version', timeout=.5) as response:
                     if json.load(response)['version'] == version:
                         if self.desktop:
+                            diagnostic(self.root, 'server_ready')
                             atomic_json(self.state / 'instance.json', {'port': self.socket.getsockname()[1], 'version': version})
                         return
             except (OSError, ValueError, KeyError):
@@ -183,7 +184,17 @@ def main():
         config = json.loads((ROOT / 'bootstrap.json').read_text())
         supervisor = Supervisor(ROOT, config, desktop='--desktop' in sys.argv)
         if supervisor.desktop:
-            supervisor.updater.recover()
+            diagnostic(ROOT, 'desktop_start_requested')
+            # Concurrent shortcuts may briefly hold the update/vault locks. Retry only
+            # contention; never interpret corrupt DPAPI data as permission to reset.
+            for attempt in range(40):
+                try:
+                    supervisor.updater.recover()
+                    break
+                except UpdateError:
+                    if attempt == 39:
+                        raise
+                    time.sleep(.25)
             version = supervisor.updater.current() if (supervisor.state / 'current.json').exists() else config['version']
             reset_marker = supervisor.state / 'reset-access'
             if reset_marker.exists():
@@ -209,6 +220,7 @@ def main():
                         raise
                     existing = verify_instance(ROOT, version, supervisor.access)
                     if existing:
+                        diagnostic(ROOT, 'instance_reused')
                         if '--no-browser' not in sys.argv:
                             open_browser(existing)
                         return 0
@@ -220,6 +232,8 @@ def main():
     except KeyboardInterrupt:
         return 0
     except Exception:
+        if '--desktop' in sys.argv:
+            diagnostic(ROOT, 'desktop_start_failed')
         if '--desktop' in sys.argv and '--no-browser' not in sys.argv:
             show_error()
         print('Falha ao iniciar/recuperar HUGINN. Confira porta 8000, pasta extraída e documentação de recuperação.')

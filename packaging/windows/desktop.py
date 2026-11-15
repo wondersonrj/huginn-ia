@@ -22,6 +22,19 @@ def installation_id(root):
 
 
 def access_token(root, version, reset=False):
+    import time
+    backend_path(root, version)
+    from app.connection_store import Conflict
+    for attempt in range(40):
+        try:
+            return _access_token(root, version, reset)
+        except Conflict:
+            if attempt == 39:
+                raise
+            time.sleep(.25)
+
+
+def _access_token(root, version, reset=False):
     backend_path(root, version)
     from app.connection_store import current_store, safe_path
     from app.windows_secrets import VaultError, private_permissions
@@ -105,3 +118,18 @@ def recovery_confirmed():
     return os.name == 'nt' and ctypes.windll.user32.MessageBoxW(None,
         'O acesso local protegido esta indisponivel. Recriar somente o token? As conexoes salvas serao preservadas. Feche o HUGINN antigo antes; nenhum outro processo sera encerrado.',
         'HUGINN IA - recuperar acesso', 0x24) == 6
+
+
+def diagnostic(root, event):
+    # Whitelist fixed event codes: never serialize exception text, URLs or arguments.
+    if event not in {'desktop_start_requested', 'desktop_start_failed', 'instance_reused', 'server_ready'}:
+        return
+    from datetime import datetime, timezone
+    try:
+        path = Path(root) / 'state' / 'diagnostics.jsonl'
+        if path.exists() and path.stat().st_size > 65536:
+            path.unlink()
+        with path.open('a', encoding='utf-8') as stream:
+            stream.write(json.dumps({'event': event, 'at_utc': datetime.now(timezone.utc).isoformat()}) + '\n')
+    except OSError:
+        pass  # Startup error dialog remains available; never expose an exception.

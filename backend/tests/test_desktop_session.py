@@ -136,3 +136,32 @@ def test_installer_activation_preserves_previous_pointer_on_failure(tmp_path, he
         else:
             with pytest.raises(RuntimeError): value.activate(tmp_path)
     assert json.loads(pointer.read_text())['version'] == ('0.2.1' if healthy else '0.2.0')
+
+
+def test_automatic_access_token_restart_corruption_rotation_without_profile_loss(tmp_path, monkeypatch):
+    from app.connection_store import Store
+    from app.windows_secrets import windows_identity, VaultError
+    from test_connection_store import FakeProtector, FIELDS
+    identity = windows_identity() if os.name == 'nt' else 'synthetic-user'
+    store = Store(tmp_path / 'private', 'test-installation', identity, FakeProtector())
+    profile = store.save(FIELDS, 'synthetic-oracle-credential')
+    monkeypatch.setattr('app.connection_store.current_store', lambda: store)
+    monkeypatch.setenv('HUGINN_STATE_DIR', 'test-original')
+    desktop = load_desktop()
+    token = desktop.access_token(tmp_path / 'installation', '0.2.0')
+    assert len(token) == 64 and desktop.access_token(tmp_path / 'installation', '0.2.0') == token
+    assert token.encode() not in (store.root / 'local-token.bin').read_bytes()
+    (store.root / 'local-token.bin').write_bytes(b'corrupted')
+    with pytest.raises(VaultError): desktop.access_token(tmp_path / 'installation', '0.2.0')
+    replacement = desktop.access_token(tmp_path / 'installation', '0.2.0', reset=True)
+    assert replacement != token
+    assert store.listing()['profiles'][0]['id'] == profile['id']
+    assert store.for_test(profile['id'], profile['revision'], 'TESTE').config.password == 'synthetic-oracle-credential'
+
+
+def test_reset_requires_owned_session_and_preserves_profiles(desktop, monkeypatch, tmp_path):
+    monkeypatch.setenv('HUGINN_STATE_DIR', str(tmp_path))
+    assert client().post('/api/local-reset', json={}).status_code == 403
+    c = client(); c.post('/api/local-session', json={})
+    assert c.post('/api/local-reset', json={}).status_code == 200
+    assert (tmp_path / 'reset-access').is_file() and (tmp_path / 'shutdown').is_file()

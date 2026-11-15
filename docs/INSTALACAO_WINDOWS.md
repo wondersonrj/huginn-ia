@@ -146,3 +146,10 @@ O primeiro ensaio Windows compilou MSVC/Inno com sucesso e detectou uma regress�
 no diagnóstico legado com Origin válido (conflito de nome de função). A correção
 preserva a allowlist e ganhou teste específico; artifacts não são entregues
 a partir daquele run falho. Os IDs finais aprovados ficam no PR.
+
+O modo instalado conserva logs sanitizados em state/diagnostics.jsonl (códigos
+fixos de abertura/identidade) e state/audit.jsonl (auditoria estruturada da #18,
+com rotação e ACL privada). Não redireciona stderr bruto do driver para suporte.
+Compartilhe somente esses arquivos após revisão; nunca o diretório state inteiro,
+cofre, request.json ou tokens. O fechamento de console não é necessário para
+coletar diagnóstico, e o instalador não registra corpos/credenciais.
