@@ -143,7 +143,8 @@ begin
   RunMaintenance('inspect');
   Result := MemoDirInfo + NewLine + NewLine + 'Atualizacao HUGINN IA: ' +
     GetIniString('Migration', 'previous', 'instalacao nova', ExpandConstant('{tmp}\HUGINN-maintenance\report.ini')) +
-    ' -> {#AppVersion}' + NewLine + 'Preservar conexoes, senhas DPAPI, token, dados e configuracoes deste usuario.' + NewLine +
+    ' -> {#AppVersion}' + NewLine + 'Origem: ' +
+    GetIniString('Migration', 'kind', 'fresh', ExpandConstant('{tmp}\HUGINN-maintenance\report.ini')) + NewLine + 'Preservar conexoes, senhas DPAPI, token, dados e configuracoes deste usuario.' + NewLine +
     'A instancia autenticada do HUGINN sera encerrada com seguranca. Sem desinstalar duas vezes, sem reiniciar o Windows e sem alterar Oracle.' + NewLine +
     'Copias portateis em outras pastas nao serao alteradas.' + NewLine + MemoTasksInfo;
 end;

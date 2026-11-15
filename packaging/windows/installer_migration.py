@@ -301,6 +301,24 @@ def target(root, key):
     raise MigrationError('unsafe_backup')
 
 
+def clear_backup(root):
+    backup = safe(root / BACKUP)
+    if not backup.exists(): return
+    if not (backup / 'journal.json').exists():
+        if any(backup.iterdir()): raise MigrationError('unrecognized_backup')
+        backup.rmdir(); return
+    journal(root)
+    for path in backup.iterdir():
+        safe(path)
+        if path.name == 'journal.json' and path.is_file(): continue
+        if path.name != 'files' or not path.is_dir(): raise MigrationError('unrecognized_backup')
+        for blob in path.iterdir():
+            safe(blob)
+            if not blob.is_file() or not re.fullmatch('[a-f0-9]{64}', blob.name):
+                raise MigrationError('unrecognized_backup')
+    shutil.rmtree(backup)
+
+
 def prepare(root, inventory):
     root = safe(root)
     if (root / BACKUP / 'journal.json').exists():
@@ -311,7 +329,7 @@ def prepare(root, inventory):
             raise MigrationError('invalid_journal')
     report = inspect(root, inventory)
     backup = safe(root / BACKUP)
-    if backup.exists(): shutil.rmtree(backup)
+    clear_backup(root)
     backup.mkdir(parents=True); private_permissions(backup, windows_identity())
     data = dict(format=1, installation=identity(root), sid=windows_identity(), phase='backing_up',
                 previous=report['previous'], payload=inventory, entries={}, registry=registry_snapshot())

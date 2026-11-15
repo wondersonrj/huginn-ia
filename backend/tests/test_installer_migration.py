@@ -184,3 +184,20 @@ def test_failure_fixture_only_breaks_the_versioned_entrypoint(tmp_path):
     with zipfile.ZipFile(failed) as archive:
         assert archive.read('HUGINN-IA-Windows-x64/versions/0.3.2/server.py') == b'raise SystemExit(42)\n'
         assert archive.read('HUGINN-IA-Windows-x64/runtime/Lib/http/server.py') == b'# standard library unchanged'
+
+
+def test_unrecognized_backup_folder_is_never_deleted(migration):
+    m, root, inv, install = migration
+    folder = root / m.BACKUP; folder.mkdir()
+    (folder / 'customer.txt').write_text('user backup data')
+    with pytest.raises(m.MigrationError, match='unrecognized_backup'): m.prepare(root, inv)
+    assert (folder / 'customer.txt').read_text() == 'user backup data'
+    assert (root / 'launcher.py').read_bytes() == b'old launcher'
+
+
+def test_extra_user_file_in_prior_backup_blocks_rotation_without_data_loss(migration):
+    m, root, inv, install = migration
+    m.prepare(root, inv); install(); m.validated(root); m.commit(root)
+    extra = root / m.BACKUP / 'customer.txt'; extra.write_text('never erase unknown files')
+    with pytest.raises(m.MigrationError, match='unrecognized_backup'): m.prepare(root, inv)
+    assert extra.read_text() == 'never erase unknown files'

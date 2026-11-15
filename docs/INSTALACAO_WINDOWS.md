@@ -198,7 +198,8 @@ Antes de copiar arquivos, o Setup cria `.installer-backup` na própria instalaç
 com ACL privada do usuário/SYSTEM. Guarda os binários que serão substituídos,
 configurações/apontador, registro e atalhos, mais cópias dos blobs já criptografados
 e metadados do cofre. Não exporta senha/token em claro. Conserva somente o último
-backup; a migração seguinte prepara outro antes de alterar a instalação.
+backup reconhecido; uma pasta/arquivo desconhecido dentro desse espaço interrompe
+a rotação sem ser apagado. a migração seguinte prepara outro antes de alterar a instalação.
 
 Todos os novos arquivos catalogados são verificados por SHA256 e a nova aplicação
 precisa confirmar sua versão HTTP em uma porta própria de teste. Somente então
