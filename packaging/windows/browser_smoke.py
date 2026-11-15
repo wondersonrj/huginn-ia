@@ -20,6 +20,10 @@ def scenario_navigation(page):
     expect(page.get_by_role('heading', name='Visão geral', exact=True, level=1)).to_be_visible()
     for module in LABELS:
         go(page, module)
+    go(page, 'produtos')
+    page.locator('.skip-link').focus()
+    page.keyboard.press('Enter')
+    assert page.evaluate("location.hash === '#produtos' && document.activeElement.tagName === 'H1'")
     go(page, 'visao-geral')
     expect(page.get_by_role('heading', name='Central de Conexões', exact=True)).to_have_count(0)
     assert page.get_by_label('Host da conexão', exact=True).count() == 0

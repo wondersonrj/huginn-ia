@@ -65,7 +65,7 @@ function App(){
  const title=navigation.find(n=>n.id===route)?.label
  const oracle=health?.modo==='oracle'&&health.conectado
  return <div className="shell" data-app-ready="true">
-  <a className="skip-link" href="#conteudo">Ir para o conteúdo</a>
+  <a className="skip-link" href="#conteudo" onClick={e=>{e.preventDefault();heading.current?.focus()}}>Ir para o conteúdo</a>
   <aside className="sidebar"><a className="brand" href="#visao-geral" aria-label="HUGINN IA · Início"><span className="brand-symbol"><Bird size={32}/></span><span>HUGINN <b>IA</b><small>INTELIGÊNCIA OPERACIONAL</small></span></a>
    <button className="mobile-menu button quiet" aria-label={menu?'Fechar navegação':'Abrir navegação'} aria-expanded={menu} aria-controls="primary-navigation" onClick={()=>setMenu(!menu)}>{menu?<X/>:<Menu/>}</button>
    <nav id="primary-navigation" aria-label="Navegação principal" className={menu?'is-open':''} onKeyDown={e=>{if(e.key==='Escape')setMenu(false)}}>
