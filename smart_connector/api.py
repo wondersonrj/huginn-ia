@@ -7,6 +7,7 @@ import ssl
 
 from smart_connector import VERSION
 from smart_connector.config import validate
+from smart_connector.capabilities import capabilities
 
 LOG = logging.getLogger("smart_connector")
 OPERATIONS = {"/oracle/test": "SELECT 1 FROM DUAL",
@@ -59,7 +60,10 @@ def make_server(cfg, operation=oracle_operation):
                 return self.reply(401, {"error": "unauthorized"})
             if self.path == "/health":
                 return self.reply(200, {"status": "ok", "version": VERSION,
-                                        "oracle_configured": bool(cfg.get("oracle_host"))})
+                                        "oracle_configured": all(bool(cfg.get(key)) for key in
+                                            ("oracle_host", "oracle_service", "oracle_user", "oracle_password"))})
+            if self.path == "/api/v1/capabilities":
+                return self.reply(200, capabilities())
             if self.path not in OPERATIONS:
                 return self.reply(404, {"error": "unknown_operation"})
             try:
