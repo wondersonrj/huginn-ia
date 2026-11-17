@@ -26,7 +26,7 @@ SetupLogging=yes
 [Files]
 Source: "{#Payload}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 [Icons]
-Name: "{group}\Configurar Smart Connector"; Filename: "{app}\HUGINNConnector.exe"; Parameters: "--configure"; Flags: runascurrentuser
+Name: "{group}\Configurar Smart Connector"; Filename: "{app}\HUGINNConnector.exe"; Parameters: "--configure"
 Name: "{group}\Desinstalar Smart Connector"; Filename: "{uninstallexe}"
 [Code]
 function Command(const Switch: String): Boolean;
