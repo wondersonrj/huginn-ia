@@ -1,5 +1,11 @@
 # HUGINN Smart Connector 0.2.1
 
+Para diagnóstico de rede a partir da sessão WinThor e base de integração Delphi,
+consulte [PCINF9803 / Issue #38](../docs/PCINF9803_CLOUD.md). A conexão Oracle externa
+foi confirmada pelo usuário na Issue #38; Cloud → conector ainda não foi validado.
+`/api/v1/capabilities` descreve capacidades reais; relatórios financeiros estão
+desabilitados até receber SQL/regras originais e autorização por filial/módulo.
+
 Serviço Windows x64 independente do aplicativo desktop HUGINN IA. Oferece API
 Oracle de leitura usando **python-oracledb Thin**, sem OCI, Oracle Client, Python,
 PyInstaller ou Inno Setup instalados pelo cliente. Windows 10/11 e Windows Server

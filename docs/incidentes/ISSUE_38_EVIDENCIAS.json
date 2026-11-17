@@ -1,0 +1,15 @@
+{
+  "issue": 38,
+  "dependency_pr": 37,
+  "reviewed_head": "495dbe82c7c6b6e07b4432815944c77e6aa60308",
+  "oracle_external_connection": "reported_working_by_user_in_issue_not_retested_here",
+  "cloud_https_test": "not_run",
+  "network_block_observed": false,
+  "network_plan_approved": false,
+  "missing_inputs": ["authorized_https_origin", "access_to_actual_winthor_cloud_session", "original_delphi_pcinf9803_sources", "original_business_sql_for_five_modules", "licensed_delphi_10_seattle_compiler"],
+  "local_firedac_sources_modified": false,
+  "financial_api_enabled": false,
+  "delphi_compilation": "not_run",
+  "totvs_homologated": false,
+  "next_action": "administrator_provisions_approved_route_and_tls_then_operator_runs_diagnostic_in_actual_cloud_session"
+}

@@ -1,0 +1,22 @@
+HUGINN - TESTE DE ACESSO A PARTIR DO WINTHOR CLOUD
+
+Este teste nao instala Python, nao muda firewall, proxy ou certificados.
+
+1. O administrador precisa fornecer um endereco HTTPS valido do conector.
+   Se voce ainda nao tem esse endereco, pare aqui e solicite ao administrador.
+   http://127.0.0.1:8765 nao serve para acessar outra maquina.
+2. Dentro da MESMA sessao Windows onde o PCINF9803 roda no WinThor Cloud,
+   copie e extraia esta pasta (todos os arquivos).
+3. Abra DIAGNOSTICAR_CLOUD.cmd. Se a politica bloquear scripts, solicite
+   liberacao ao administrador. Nao desabilite a politica de seguranca.
+4. Informe o endereco HTTPS e, quando solicitado, o token da API.
+   A entrada do token fica oculta. Nao informe senha Oracle.
+5. Envie o resultado JSON ao responsavel pela homologacao. Ele nao contem token,
+   senha, corpo das respostas ou detalhes brutos das excecoes.
+
+authenticated_https = true confirma somente health autenticado da origem testada.
+Nao comprova acesso aos modulos financeiros nem homologa o TOTVS Cloud.
+direct_dns/direct_tcp sao sondagens diretas e podem falhar quando ha proxy.
+O resultado HTTPS via WinHTTP e o decisivo para o caminho efetivamente utilizado.
+
+Suporte: consulte docs/PCINF9803_CLOUD.md e a Issue #38 no repositorio.
