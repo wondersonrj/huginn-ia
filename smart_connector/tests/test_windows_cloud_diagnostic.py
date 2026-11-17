@@ -75,7 +75,7 @@ try {
     if ($untrusted.authenticated_https -or $untrusted.stages[-1].result -notmatch '^tls_') {
         throw ('Untrusted certificate accepted or misclassified: ' + ($untrusted | ConvertTo-Json -Depth 8))
     }
-    $cert = Import-Certificate -FilePath '%s' -CertStoreLocation Cert:\CurrentUser\Root
+    $cert = Import-Certificate -FilePath '%s' -CertStoreLocation Cert:\LocalMachine\Root
     $rejected = Test-HuginnCloud -BaseUrl 'https://127.0.0.1:%d' -Token $bad -TimeoutSeconds 3
     if ($rejected.stages[-1].result -ne 'authentication_rejected') { throw 'Wrong token accepted' }
     $ok = Test-HuginnCloud -BaseUrl 'https://127.0.0.1:%d' -Token $token -TimeoutSeconds 3 -OracleReadTest
@@ -88,7 +88,7 @@ try {
         if ($response.status -ne 200 -or $response.body.api_version -ne '1.0') { throw 'Capabilities contract' }
     }, @('https://127.0.0.1:%d'))
 } finally {
-    if ($cert) { Remove-Item ('Cert:\CurrentUser\Root\' + $cert.Thumbprint) -Force }
+    if ($cert) { Remove-Item ('Cert:\LocalMachine\Root\' + $cert.Thumbprint) -Force }
     $token.Dispose(); $bad.Dispose()
 }
 Write-Host 'Real WinHTTP untrusted/trusted TLS, authentication, contract and reconnect: PASS'
