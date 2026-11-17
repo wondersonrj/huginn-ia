@@ -25,7 +25,8 @@ def test_only_fixed_bound_metadata_and_readonly_transaction():
     assert calls[0].args == ('SET TRANSACTION READ ONLY',)
     assert calls[1].args == (METADATA_SQL, {f't{i}': n for i, n in enumerate(TABLES, 1)})
     normalized = ' '.join(METADATA_SQL.upper().split())
-    assert 'FROM ALL_TAB_COLUMNS C JOIN ALL_TABLES T' in normalized
+    assert 'FROM ALL_TAB_COLUMNS C' in normalized
+    assert 'ALL_TABLES' not in normalized
     assert set(TABLES) == {'PCPRODUT', 'PCFORNEC', 'PCPRODFILIAL', 'PCPRODFORNEC', 'PCNFENT', 'PCMOV', 'PCPEDIDO'}
     # Business names are bound values; none appears as an SQL source.
     assert all(name not in normalized for name in TABLES)

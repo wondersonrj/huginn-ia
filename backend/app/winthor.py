@@ -85,21 +85,38 @@ def validate_schema(cursor, owner, kind):
                                          code_column=code, name_column=name))
         columns = dict(cursor.fetchmany(3))
     except Exception as exc:
-        if getattr(exc.args[0], 'full_code', '') not in {'ORA-00942', 'ORA-01031'}:
+        if (getattr(exc.args[0], 'full_code', '') if exc.args else '') not in {'ORA-00942', 'ORA-01031'}:
             raise
         columns = {}
     if not columns:
         # No dictionary row does not prove a missing grant/table. Describe the exact
         # authorized SELECT without fetching data; DB still enforces all permissions.
-        cursor.execute(SYNONYM_SQL, dict(owner=owner, table_name=table))
-        if cursor.fetchmany(1):
+        try:
+            cursor.execute(SYNONYM_SQL, dict(owner=owner, table_name=table))
+            synonyms = cursor.fetchmany(21)
+        except Exception:
+            # Without dictionary evidence we cannot exclude a private synonym
+            # redirecting the qualified name. Fail closed, without claiming a
+            # missing business-table grant or emitting raw driver diagnostics.
+            raise SchemaUnavailable('Não foi possível verificar sinônimos; confirme os metadados com o DBA.',
+                                    cause='sinonimos_nao_verificados') from None
+        # Qualified OWNER.TABLE never resolves through a PUBLIC synonym. A
+        # private synonym in the configured owner can redirect even this SQL,
+        # including over a database link, so require an explicit base owner.
+        if any(row[0] == owner for row in synonyms):
             raise SchemaUnavailable('Sinônimo detectado: confirme explicitamente o owner da tabela base no perfil; nenhum destino foi escolhido.', cause='sinonimo_exige_destino_explicito')
         probe(cursor, owner, kind)
         return dict(tabela=table, colunas=[dict(nome=code, tipo='NUMBER'), dict(nome=name, tipo='TEXT')], validado=True, evidencia='select_sem_linhas')
     if columns.get(code) != 'NUMBER' or columns.get(name) not in TEXT_TYPES:
-        raise SchemaUnavailable('Required table or columns not visible/compatible')
+        missing = code not in columns or name not in columns
+        raise SchemaUnavailable('Colunas exigidas ausentes ou tipos incompatíveis.',
+                                cause='coluna_ausente' if missing else 'colunas_incompativeis')
+    # Dictionary visibility (including grants via roles) does not establish that
+    # the exact projection is readable. Use the same check for search/diagnostic.
+    probe(cursor, owner, kind)
     return dict(tabela=table, colunas=[dict(nome=code, tipo=columns[code]),
-                                     dict(nome=name, tipo=columns[name])], validado=True)
+                                     dict(nome=name, tipo=columns[name])], validado=True,
+                evidencia='metadados_e_select_sem_linhas')
 
 
 def diagnostic(settings):
@@ -125,11 +142,15 @@ def diagnostic(settings):
                             owners_candidatos=[], sinonimos=[], descoberta_limitada=False)
                 try:
                     item.update(validate_schema(cursor, settings.owner, kind))
-                    # Metadata does not prove SELECT permission. Describe the exact projection.
-                    probe(cursor, settings.owner, kind)
                     item.update(validado=True, causa='leitura_confirmada', acao='Estrutura e SELECT confirmados para este destino.')
                 except SchemaUnavailable as exc:
-                    item.update(validado=False, causa=exc.cause, acao='Confira owner, nomes e tipos; nenhuma alteração foi feita.')
+                    actions = {
+                        'sinonimo_exige_destino_explicito': 'Confirme e selecione o owner da tabela base em Editar conexão; sinônimos não são seguidos.',
+                        'sinonimos_nao_verificados': 'Solicite ao DBA verificar a visibilidade de ALL_SYNONYMS; o destino não pôde ser confirmado.',
+                        'coluna_ausente': 'Confira as colunas exigidas na tabela do owner configurado.',
+                        'colunas_incompativeis': 'Confira nomes e tipos das colunas exigidas no owner configurado.',
+                    }
+                    item.update(validado=False, causa=exc.cause, acao=actions.get(exc.cause, 'Confira owner, nomes e tipos; nenhuma alteração foi feita.'))
                 except Exception as exc:
                     error = getattr(exc.args[0], 'full_code', '') if exc.args else ''
                     causes = {'ORA-00942': 'objeto_ausente_ou_nao_visivel', 'ORA-01031': 'select_negado',

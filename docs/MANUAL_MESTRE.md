@@ -256,3 +256,17 @@ sinalizava falha ao chamador (retornava 0). Corrigido com código de saída 8,
 tela de atualização não aplicada e bloqueio de abertura do novo aplicativo;
 rollback continua obrigatório ao fechar o Setup. A CI exige retorno de falha
 e instalação anterior íntegra antes de aceitar o artifact.
+
+## Complemento Oracle P0 — plano técnico #33 / issue #25
+
+A consulta real de PCPRODUT e PCFORNEC agora exige a mesma comprovação de SELECT
+sem linhas usada no diagnóstico, mesmo quando o dicionário expõe colunas.
+Sinônimo PUBLIC não bloqueia o owner explicitamente qualificado; sinônimo privado
+exige confirmação do owner base. O diagnóstico avulso não depende mais de
+ALL_TABLES. Falhas de colunas, tipos e verificação de sinônimos têm ações próprias.
+Perfil, senha DPAPI e seleção explícita da conexão permanecem preservados.
+
+A [matriz on-premises e o roteiro de aceite](DIAGNOSTICO_ORACLE.md#complemento-p0-do-plano-33)
+separam regressões automatizadas da validação Oracle real, ainda pendente de
+acesso autorizado ao cliente. Este complemento não ativa atualizações, não
+publica release nem implementa os módulos #31/#32.

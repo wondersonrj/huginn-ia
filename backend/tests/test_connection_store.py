@@ -5,6 +5,7 @@ import os
 from pathlib import Path
 import subprocess
 import sys
+from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 import pytest
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
@@ -232,6 +233,7 @@ def test_query_uses_selected_saved_profile_with_readonly_metadata_and_binds(api_
     profile = selected(api_store)
     con = MagicMock(); cur = con.cursor.return_value.__enter__.return_value
     cur.fetchmany.side_effect = [[('CODPROD', 'NUMBER'), ('DESCRICAO', 'VARCHAR2')], [(1, 'Synthetic product')]]
+    cur.description = [('CODE', SimpleNamespace(name='DB_TYPE_NUMBER')), ('NAME', SimpleNamespace(name='DB_TYPE_VARCHAR'))]
     with patch('oracledb.connect', return_value=con) as connect:
         response = client().post('/api/winthor/produtos', json={'connection_id': profile['id'], 'connection_revision': profile['revision'], 'codigo': 1})
     assert response.status_code == 200 and response.json()['connection']['id'] == profile['id']
@@ -416,6 +418,7 @@ def test_saved_supplier_query_keeps_schema_validation_and_binds(api_store):
     profile = selected(api_store)
     con = MagicMock(); cur = con.cursor.return_value.__enter__.return_value
     cur.fetchmany.side_effect = [[('CODFORNEC', 'NUMBER'), ('FORNECEDOR', 'VARCHAR2')], [(3, 'Synthetic supplier')]]
+    cur.description = [('CODE', SimpleNamespace(name='DB_TYPE_NUMBER')), ('NAME', SimpleNamespace(name='DB_TYPE_VARCHAR'))]
     with patch('oracledb.connect', return_value=con):
         response = client().post('/api/winthor/fornecedores', json={'connection_id': profile['id'], 'connection_revision': profile['revision'], 'codigo': 3})
     assert response.status_code == 200 and response.json()['itens'][0]['codigo'] == '3'

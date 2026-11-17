@@ -5,7 +5,6 @@ TABLES = ("PCPRODUT", "PCFORNEC", "PCPRODFILIAL", "PCPRODFORNEC", "PCNFENT", "PC
 METADATA_SQL = """
     SELECT c.owner, c.table_name, c.column_name, c.data_type
     FROM all_tab_columns c
-    JOIN all_tables t ON t.owner = c.owner AND t.table_name = c.table_name
     WHERE c.table_name IN (:t1,:t2,:t3,:t4,:t5,:t6,:t7)
     ORDER BY c.table_name, c.owner, c.column_id
 """

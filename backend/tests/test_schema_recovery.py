@@ -22,7 +22,7 @@ class Cursor:
             assert 'all_tables' not in sql.lower()
             self.rows = [] if self.hidden else [(binds['code_column'], 'VARCHAR2' if self.incompatible else 'NUMBER'), (binds['name_column'], 'VARCHAR2')]
         elif sql == winthor.OWNER_SQL: self.rows = [('WINT',), ('OTHER',)]
-        elif sql == winthor.SYNONYM_SQL: self.rows = [('PUBLIC', 'WINT', binds['table_name'], 'REMOTE' if self.synonym == 'remote' else None)] if self.synonym else []
+        elif sql == winthor.SYNONYM_SQL: self.rows = [('PUBLIC' if self.synonym == 'public' else binds['owner'], 'WINT', binds['table_name'], 'REMOTE' if self.synonym == 'remote' else None)] if self.synonym else []
         elif 'SYS_CONTEXT' in sql: self.rows = [('SESSION_OWNER', 'READER')]
         elif 'WHERE 1 = 0' in sql:
             if self.failure: raise RuntimeError(SimpleNamespace(full_code=self.failure, message='never-log-this'))
@@ -88,3 +88,83 @@ def test_owner_injection_rejected_before_any_sql():
     cursor = Cursor()
     with pytest.raises(ValueError): winthor.validate_schema(cursor, 'WINT".PCMOV--', 'produtos')
     assert not cursor.calls
+
+
+@pytest.mark.parametrize('hidden', [False, True])
+def test_public_synonym_does_not_block_explicit_owner_projection(hidden):
+    cursor = Cursor(hidden=hidden, synonym='public'); con = Connection(cursor)
+    with patch('app.winthor.connect_readonly', return_value=con):
+        result = winthor.search(SETTINGS, 'produtos', code=7)
+    assert result['itens'][0]['codigo'] == '7'
+    assert any('FROM "WRONG"."PCPRODUT" WHERE 1 = 0' in sql for sql, _ in cursor.calls)
+    assert not any('FROM "WINT".' in sql for sql, _ in cursor.calls)
+    assert SETTINGS.owner == 'WRONG' and con.closed
+
+
+@pytest.mark.parametrize('error', ['ORA-00942', 'ORA-01031'])
+def test_dictionary_denied_uses_description_without_requiring_dictionary_grants(error):
+    class Restricted(Cursor):
+        def execute(self, sql, binds=None):
+            if sql == winthor.METADATA_SQL:
+                self.calls.append((sql, binds))
+                raise RuntimeError(SimpleNamespace(full_code=error))
+            super().execute(sql, binds)
+    cursor = Restricted(); con = Connection(cursor)
+    with patch('app.winthor.connect_readonly', return_value=con):
+        result = winthor.search(SETTINGS, 'produtos', code=7)
+    assert result['itens'][0]['codigo'] == '7' and con.closed
+
+
+@pytest.mark.parametrize('error', ['ORA-01031', 'ORA-00942', 'ORA-00904'])
+def test_visible_metadata_cannot_bypass_projection_failure_in_search(error):
+    cursor = Cursor(failure=error); con = Connection(cursor)
+    with patch('app.winthor.connect_readonly', return_value=con), pytest.raises(RuntimeError):
+        winthor.search(SETTINGS, 'produtos', code=7)
+    assert not any('OFFSET' in sql for sql, _ in cursor.calls) and con.closed
+
+
+@pytest.mark.parametrize('synonym', [True, 'remote'])
+def test_private_synonym_blocks_business_query_until_base_owner_explicitly_selected(synonym):
+    cursor = Cursor(hidden=True, synonym=synonym); con = Connection(cursor)
+    with patch('app.winthor.connect_readonly', return_value=con), pytest.raises(winthor.SchemaUnavailable) as error:
+        winthor.search(SETTINGS, 'produtos', code=7)
+    assert error.value.cause == 'sinonimo_exige_destino_explicito'
+    assert not any('WHERE 1 = 0' in sql or 'OFFSET' in sql for sql, _ in cursor.calls)
+    assert con.closed
+
+
+def test_unavailable_synonym_dictionary_fails_closed_with_accurate_cause():
+    class Restricted(Cursor):
+        def execute(self, sql, binds=None):
+            if sql == winthor.SYNONYM_SQL:
+                raise RuntimeError('never-log-this')
+            super().execute(sql, binds)
+    cursor = Restricted(hidden=True); con = Connection(cursor)
+    with patch('app.winthor.connect_readonly', return_value=con):
+        result = winthor.diagnostic(SETTINGS)
+    assert all(t['causa'] == 'sinonimos_nao_verificados' for t in result['tabelas'])
+    assert 'never-log-this' not in str(result)
+    assert not any('WHERE 1 = 0' in sql for sql, _ in cursor.calls) and con.closed
+
+
+def test_partial_metadata_distinguishes_missing_column_from_incompatible_type():
+    class Partial(Cursor):
+        def execute(self, sql, binds=None):
+            super().execute(sql, binds)
+            if sql == winthor.METADATA_SQL: self.rows = [(binds['code_column'], 'NUMBER')]
+    cursor = Partial(); con = Connection(cursor)
+    with patch('app.winthor.connect_readonly', return_value=con):
+        result = winthor.diagnostic(SETTINGS)
+    assert all(t['causa'] == 'coluna_ausente' for t in result['tabelas'])
+    assert not any('OFFSET' in sql for sql, _ in cursor.calls) and con.closed
+
+
+def test_no_argument_metadata_error_is_sanitized_and_connection_closed():
+    class Broken(Cursor):
+        def execute(self, sql, binds=None):
+            if sql == winthor.METADATA_SQL: raise RuntimeError()
+            super().execute(sql, binds)
+    con = Connection(Broken())
+    with patch('app.winthor.connect_readonly', return_value=con):
+        result = winthor.diagnostic(SETTINGS)
+    assert all(t['causa'] == 'erro_oracle' for t in result['tabelas']) and con.closed

@@ -23,8 +23,9 @@ mensagem de falta de SELECT. DUAL verifica somente a sessão e não o catálogo.
    demais erros conhecidos são traduzidos sem reproduzir mensagem bruta/DSN.
 4. Owners candidatos vêm de metadados visíveis, limitados a 20; podem ser
    parciais e não comprovam SELECT. Sinônimos privados/públicos são informados;
-   se detectados como substituto sem metadados, não são seguidos automaticamente
-   (inclusive remotos). Confirme o owner da tabela base com o DBA. Cadeias,
+   privados no owner configurado sem metadados da base não são seguidos
+   (inclusive remotos); PUBLIC não resolve nomes qualificados por owner.
+   Confirme o owner da tabela base com o DBA. Cadeias,
    DB links e identificadores Oracle entre aspas não são resolvidos automaticamente.
 5. Se houver owner errado/ambíguo, use **Editar conexão**, confirme o owner em
    maiúsculas, salve mantendo a senha em branco, selecione novamente e verifique.
@@ -54,3 +55,53 @@ erros Oracle, queries parametrizadas e ausência de commits. O smoke Windows
 instalado usa DPAPI/SID reais e um driver double apenas na cópia descartável,
 nunca no instalador distribuído. Isso não comprova o schema de cliente real.
 Evidências finais e artifact de homologação são registrados no PR da #25.
+
+## Complemento P0 do plano #33
+
+A busca e o diagnóstico agora usam a mesma validação: mesmo com metadados
+visíveis, a projeção exata é descrita com `WHERE 1 = 0` antes de ler registros.
+Isso confirma o SELECT efetivo da sessão, incluindo permissões herdadas de roles,
+sem exigir acesso a DBA_TAB_PRIVS nem inferir grants pelo dicionário. A evidência
+retornada é `metadados_e_select_sem_linhas` ou `select_sem_linhas`. Coluna ausente
+e tipo incompatível têm causas distintas. O diagnóstico avulso também deixa de
+exigir o JOIN com ALL_TABLES; sua lista de colunas continua sendo apenas
+visibilidade de metadados, sem comprovação de SELECT comercial.
+
+Uma referência qualificada `OWNER.PCPRODUT` não usa sinônimo público. Assim, um
+sinônimo PUBLIC informado no relatório não impede validar o owner explicitamente
+configurado, mesmo quando ALL_TAB_COLUMNS está vazio. Um sinônimo **privado do
+owner configurado**, sem metadados da tabela base, continua bloqueado: é preciso
+confirmar explicitamente o owner base no perfil. Destinos remotos, cadeias e
+nomes fora da allowlist não são seguidos. Se ALL_SYNONYMS não puder ser consultado
+nesse fallback, a causa é `sinonimos_nao_verificados`; nenhuma consulta comercial
+é feita nem se presume falta de SELECT na PCPRODUT.
+
+### Matriz de compatibilidade e homologação on-premises
+
+| Cenário | Verificação automatizada | Limite / aceite no cliente |
+| --- | --- | --- |
+| Oracle 19c + python-oracledb Thin | SQL Oracle com binds, descrição dos tipos NUMBER/texto e paginação OFFSET/FETCH; driver fake recusa escrita | Baseline do pacote; versão e autenticação reais devem ser confirmadas no cliente |
+| DUAL OK, owner errado, owner ambíguo | Falha por tabela, contexto da sessão e candidatos; perfil não alterado | Operador escolhe explicitamente o owner base |
+| Colunas visíveis, SELECT negado | Projeção falha e bloqueia busca antes de ler registros | ORA-01031 confirma insuficiência; ORA-00942 continua ambíguo |
+| Dicionário vazio / acesso restrito | Descrição sem linhas valida tipos quando não há sinônimo privado | Não exige novos grants ao dicionário; fallback indisponível falha fechado |
+| Sinônimos PUBLIC / privados / remotos | PUBLIC não bloqueia owner qualificado; privados não redirecionam a busca | Confirmar owner base, sem DB link automático |
+| Colunas ausentes / tipos incompatíveis | Diagnóstico por causa; sem consulta comercial | Somente projeções fixas CODPROD/DESCRICAO e CODFORNEC/FORNECEDOR |
+| Perfil Windows existente | Regressões de seleção, credencial protegida e contexto na API; CI Windows com DPAPI nativo | Sem migração ou regravação de credenciais neste complemento |
+
+Oracle 11g, driver Thick/Instant Client e TOTVS Cloud não fazem parte desta
+homologação: Thin, autenticação e OFFSET/FETCH precisam ser compatíveis com o
+servidor escolhido. Não habilitar Thick nem mudar a conexão para contornar erro.
+O conector mantém a proteção existente `SET TRANSACTION READ ONLY`; o restante
+do fluxo executa somente SELECT e nunca commit, DML, DDL ou GRANT.
+
+Para concluir o aceite real, no Windows autorizado do cliente: selecionar o
+perfil existente, verificar DUAL, executar **Diagnosticar estrutura**, confirmar
+PCPRODUT, pesquisar código conhecido com tamanho de página pequeno e verificar
+a próxima página. Repetir com PCFORNEC se autorizado. Registrar versão do
+servidor/driver, resultado por tabela e paginação sem publicar registros,
+credenciais, host ou DSN. Confirmar que o perfil/DPAPI foi preservado. Sem acesso
+específico autorizado, esse aceite permanece **pendente**, mesmo com CI verde.
+
+Este PR cobre a correção Oracle P0; módulos #31/#32 e ativação do updater não
+são implementados aqui. O bloqueio de publicação/assinatura do updater continua
+documentado em [Atualizações Windows](ATUALIZACOES_WINDOWS.md).
