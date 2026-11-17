@@ -1,0 +1,85 @@
+name: Codex opt-in issue implementation
+on:
+  issues:
+    types: [labeled]
+  workflow_dispatch:
+    inputs:
+      issue_number:
+        description: 'Approved issue number (31, 32, 29, 27)'
+        required: true
+        type: choice
+        options: ['31', '32', '29', '27']
+permissions:
+  contents: read
+concurrency:
+  group: codex-approved-issue
+  cancel-in-progress: false
+jobs:
+  implement:
+    if: >-
+      (github.event_name == 'workflow_dispatch' && github.actor == 'wondersonrj') ||
+      (github.event_name == 'issues' && github.event.label.name == 'codex-approved' &&
+       github.actor == 'wondersonrj' &&
+       (github.event.issue.number == 31 || github.event.issue.number == 32 ||
+        github.event.issue.number == 29 || github.event.issue.number == 27))
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Select approved task
+        id: task
+        shell: bash
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          ISSUE_INPUT: ${{ inputs.issue_number }}
+          ISSUE_EVENT: ${{ github.event.issue.number }}
+        run: |
+          if [ "$EVENT_NAME" = "workflow_dispatch" ]; then issue="$ISSUE_INPUT"; else issue="$ISSUE_EVENT"; fi
+          case "$issue" in
+            31) task="Implement XML/NF-e auditor as a HUGINN module. Follow issue #31 and docs/PLANO_PILOTO_ONPREM_20261116.md if available." ;;
+            32) task="Implement read-only WinThor master data reviewer for products, customers and suppliers. Follow issue #32." ;;
+            29) task="Improve unified HUGINN dashboard and Oracle connection UX. Follow issue #29." ;;
+            27) task="Improve Windows installer safe upgrade and rollback. Follow issue #27." ;;
+            *) echo "Unapproved issue"; exit 1 ;;
+          esac
+          printf 'issue=%s\n' "$issue" >> "$GITHUB_OUTPUT"
+          printf '%s\n' "$task" > /tmp/huginn-codex-task.txt
+      - name: Ensure API credential exists
+        env:
+          CODEX_KEY_PRESENT: ${{ secrets.OPENAI_API_KEY != '' }}
+        run: |
+          if [ "$CODEX_KEY_PRESENT" != "true" ]; then
+            echo "::error::Configure repository Actions secret OPENAI_API_KEY before dispatch."
+            exit 1
+          fi
+      - name: Codex implementation (isolated, no repo write token)
+        uses: openai/codex-action@v1
+        with:
+          openai-api-key: ${{ secrets.OPENAI_API_KEY }}
+          sandbox: workspace-write
+          safety-strategy: drop-sudo
+          prompt: |
+            You are working on the HUGINN IA repository. Implement only the following authorized task:
+            ${{ steps.task.outputs.issue == '31' && 'Issue #31: XML/NF-e audit module' || steps.task.outputs.issue == '32' && 'Issue #32: WinThor master data reviewer' || steps.task.outputs.issue == '29' && 'Issue #29: unified dashboard UX' || 'Issue #27: Windows installer safety' }}.
+            Inspect existing repository code and relevant issue references in docs.
+            Do not access production Oracle, external client systems or credentials.
+            No SQL DML/DDL, no production deploy, no merge, no releases, no workflow/secret changes.
+            Implement code and tests locally. Keep changes inside application code, tests and documentation.
+            Run available relevant tests if safe. Report blockers and remaining work.
+      - name: Export patch (separate from Codex credential step)
+        if: always()
+        shell: bash
+        run: |
+          git diff --binary -- . ':!.github/workflows' ':!.github/actions' > codex-proposal.patch
+          git status --short > codex-status.txt
+      - name: Upload proposed patch for review
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: codex-proposal-${{ github.run_id }}
+          path: |
+            codex-proposal.patch
+            codex-status.txt
+          retention-days: 7
