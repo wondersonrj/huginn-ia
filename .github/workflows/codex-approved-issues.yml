@@ -72,6 +72,7 @@ jobs:
         if: always()
         shell: bash
         run: |
+          git add -N -- .
           git diff --binary -- . ':!.github/workflows' ':!.github/actions' > codex-proposal.patch
           git status --short > codex-status.txt
       - name: Upload proposed patch for review
