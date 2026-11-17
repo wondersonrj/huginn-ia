@@ -47,8 +47,9 @@ def install(path):
     command(path, "/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART", "/SP-")
 
 
-def uninstall():
-    command(APP / "unins000.exe", "/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART")
+def uninstall(purge=False):
+    command(APP / "unins000.exe", "/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART",
+            "/PURGEDATA=1" if purge else "/PURGEDATA=0")
     assert not EXE.exists()
     try:
         win32serviceutil.QueryServiceStatus(NAME)
@@ -102,8 +103,9 @@ def main():
     # Reinstall restores operation with the same protected configuration.
     install(SETUP)
     assert health(cfg["token"])["status"] == "ok"
-    uninstall()
-    results.append("uninstall removes service/binaries; retained configuration survives reinstall: PASS")
+    uninstall(purge=True)
+    assert not config.data_dir().exists()
+    results.append("uninstall removes service/binaries; retained configuration survives reinstall; explicit purge removes data: PASS")
     report = dict(tests=results, oracle_real="NOT RUN", totvs_cloud="NOT RUN",
                   environment="GitHub hosted Windows; Python removed from child PATH, bundled runtime checked; not a pristine VM")
     (OUTPUT / "windows-test-results.json").write_text(json.dumps(report, indent=2))

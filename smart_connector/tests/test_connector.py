@@ -96,3 +96,9 @@ def test_dpapi_roundtrip_and_preserve(tmp_path, monkeypatch):
     assert config.load() == cfg
     config.initialize()
     assert (config.data_dir() / "config.dpapi").read_bytes() == blob
+    import win32security
+    descriptor = win32security.GetNamedSecurityInfo(str(config.data_dir()), win32security.SE_FILE_OBJECT,
+                                                    win32security.DACL_SECURITY_INFORMATION)
+    acl = descriptor.GetSecurityDescriptorDacl()
+    trustees = {win32security.ConvertSidToStringSid(acl.GetAce(i)[2]) for i in range(acl.GetAceCount())}
+    assert trustees == {"S-1-5-18", "S-1-5-32-544", "S-1-5-19"}

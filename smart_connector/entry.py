@@ -14,8 +14,12 @@ def main():
         import tkinter
         import win32crypt
         import servicemanager
-        if not oracledb.is_thin_mode():
+        if not getattr(sys, "frozen", False) or not oracledb.is_thin_mode():
             raise SystemExit(1)
+        window = tkinter.Tk()
+        window.withdraw()
+        window.update()
+        window.destroy()
         return
     if any(arg in sys.argv for arg in ("--install-service", "--stop-service", "--remove-service")):
         from smart_connector.maintenance import run

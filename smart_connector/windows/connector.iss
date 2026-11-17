@@ -62,11 +62,16 @@ begin
 end;
 
 procedure CurUninstallStepChanged(CurUninstallStep: TUninstallStep);
+var Purge: Boolean;
 begin
   if CurUninstallStep = usPostUninstall then begin
+    Purge := ExpandConstant('{param:PURGEDATA|0}') = '1';
     if not UninstallSilent then
-      if MsgBox('Apagar permanentemente configuração, credenciais e logs? Não será possível recuperar.',
-                 mbConfirmation, MB_YESNO or MB_DEFBUTTON2) = IDYES then
-        DelTree(ExpandConstant('{commonappdata}\HUGINN\SmartConnector'), True, True, True);
+      if not Purge then
+        Purge := MsgBox('Apagar permanentemente configuração, credenciais e logs? Não será possível recuperar.',
+                        mbConfirmation, MB_YESNO or MB_DEFBUTTON2) = IDYES;
+    if Purge then
+      if not DelTree(ExpandConstant('{commonappdata}\HUGINN\SmartConnector'), True, True, True) then
+        MsgBox('Não foi possível apagar todos os dados. Remova-os como administrador após fechar os arquivos.', mbError, MB_OK);
   end;
 end;

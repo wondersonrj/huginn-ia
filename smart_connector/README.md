@@ -130,9 +130,9 @@ não restaura alterações Oracle. Teste antes de qualquer janela de produção.
 Em Aplicativos/Programas, desinstale **HUGINN Smart Connector**. O desinstalador
 para e remove o serviço e os binários. Por padrão preserva dados para reinstalação;
 na interface há confirmação opcional para apagar configuração, credenciais e logs.
-Desinstalação silenciosa preserva os dados. Para remoção definitiva em operação
-silenciosa, após confirmar a remoção do serviço, um administrador pode remover
-explicitamente `%ProgramData%\HUGINN\SmartConnector` e backups sob sua política.
+Desinstalação silenciosa preserva os dados. Para apagar explicitamente em operação
+silenciosa use `unins000.exe /VERYSILENT /SUPPRESSMSGBOXES /NORESTART /PURGEDATA=1`.
+A remoção dos backups deve seguir a política da organização.
 
 ## Build e evidências
 
