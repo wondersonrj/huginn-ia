@@ -13,3 +13,4 @@ signing-secrets/
 
 *.dpapi
 profiles.json
+work/
