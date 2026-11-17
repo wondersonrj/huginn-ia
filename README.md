@@ -107,3 +107,10 @@ O Setup encontra a instalação do mesmo usuário e substitui os arquivos no mes
 diretório, preservando perfis/token DPAPI e configurações. Não desinstale antes.
 [Backup, instância ativa, rollback, portáteis e recuperação](docs/INSTALACAO_WINDOWS.md#atualizar-instalações-anteriores--27--setup-031).
 Sem reiniciar o Windows, merge ou release automática.
+
+## HUGINN Smart Connector
+
+O serviço Oracle Thin e seu instalador Windows independente estão documentados em
+[Smart Connector 0.2.1](smart_connector/README.md). O workflow **Smart Connector
+Windows Setup** gera `HUGINN_Smart_Connector_Setup.exe` com checksum e testes Windows.
+Validação Oracle/TOTVS Cloud depende de ambiente autorizado; não é homologação.
