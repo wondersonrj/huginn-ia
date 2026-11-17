@@ -1,7 +1,7 @@
 name: Smart Connector Windows Setup
 on:
   push:
-    branches: [main, feat/issue-36-smart-connector-021]
+    branches: [main]
     paths: ['smart_connector/**', '.github/workflows/smart-connector-windows.yml']
   pull_request:
     paths: ['smart_connector/**', '.github/workflows/smart-connector-windows.yml']
