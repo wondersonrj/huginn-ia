@@ -125,7 +125,12 @@ def main():
     install(SETUP)
     assert health(cfg["token"])["status"] == "ok"
     uninstall(purge=True)
-    assert not config.data_dir().exists()
+    # Inno's first-phase executable exits when its own files are deleted;
+    # the temporary second phase still has usPostUninstall cleanup to finish.
+    deadline = time.monotonic() + 20
+    while config.data_dir().exists() and time.monotonic() < deadline:
+        time.sleep(.1)
+    assert not config.data_dir().exists(), "Uninstall data cleanup did not finish"
     results.append("uninstall removes service/binaries; retained configuration survives reinstall; explicit purge removes data: PASS")
     report = dict(tests=results, oracle_real="NOT RUN", totvs_cloud="NOT RUN",
                   environment="GitHub hosted Windows; Python removed from child PATH, bundled runtime checked; not a pristine VM")
