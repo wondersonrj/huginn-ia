@@ -83,7 +83,7 @@ begin
       Request.Open('GET', FOrigin + Path, False);
       Request.SetRequestHeader('Authorization', 'Bearer ' + FToken);
       Request.SetRequestHeader('Accept', 'application/json');
-      Request.Send;
+      Request.Send(EmptyParam);
       Status := Request.Status;
       case Status of
         200: ;

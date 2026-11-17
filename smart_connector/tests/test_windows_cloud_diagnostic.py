@@ -1,6 +1,7 @@
 """Real WinHTTP + local TLS fixture; never probes a real customer/Cloud/Oracle."""
 import datetime
 import ipaddress
+import os
 from pathlib import Path
 import socket
 import subprocess
@@ -14,8 +15,11 @@ pytestmark = pytest.mark.skipif(sys.platform != "win32", reason="Windows WinHTTP
 
 
 def run_script(path):
+    # PowerShell 7's inherited module paths can select incompatible Core modules in Windows PS 5.1.
+    env = dict(os.environ)
+    env["PSModulePath"] = os.path.join(os.environ["SystemRoot"], "System32", "WindowsPowerShell", "v1.0", "Modules")
     result = subprocess.run(["powershell.exe", "-NoProfile", "-NonInteractive", "-File", str(path)],
-                            capture_output=True, text=True, timeout=90)
+                            env=env, capture_output=True, text=True, timeout=90)
     assert result.returncode == 0, result.stdout + result.stderr
 
 
