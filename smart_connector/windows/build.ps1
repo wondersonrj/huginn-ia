@@ -5,7 +5,7 @@ Set-Location $root
 python -m PyInstaller --noconfirm --clean --onedir --windowed --uac-admin --name HUGINNConnector `
   --paths . --hidden-import win32timezone --hidden-import win32crypt `
   --hidden-import servicemanager --hidden-import win32serviceutil `
-  --hidden-import win32service --hidden-import pywintypes `
+  --hidden-import win32service --hidden-import pywintypes --hidden-import win32security `
   --collect-all oracledb --collect-all cryptography `
   --distpath work/connector-dist --workpath work/connector-build --specpath work smart_connector/entry.py
 if ($LASTEXITCODE -ne 0) { throw 'PyInstaller failed' }

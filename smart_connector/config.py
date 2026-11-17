@@ -3,7 +3,6 @@ import json
 import os
 from pathlib import Path
 import secrets
-import subprocess
 
 
 def data_dir():
@@ -31,11 +30,15 @@ def defaults():
 
 
 def protect_directory(path):
+    import win32security
     path.mkdir(parents=True, exist_ok=True)
-    # SIDs avoid localized account names. No inherited Users/Authenticated Users access.
-    subprocess.run(["icacls.exe", str(path), "/inheritance:r", "/grant:r",
-                    "*S-1-5-18:(OI)(CI)F", "*S-1-5-32-544:(OI)(CI)F",
-                    "*S-1-5-19:(OI)(CI)M"], check=True, capture_output=True)
+    # Replace the whole DACL, including explicit entries inherited from old layouts.
+    descriptor = win32security.ConvertStringSecurityDescriptorToSecurityDescriptor(
+        "D:P(A;OICI;FA;;;SY)(A;OICI;FA;;;BA)(A;OICI;0x1301bf;;;LS)",
+        win32security.SDDL_REVISION_1)
+    win32security.SetNamedSecurityInfo(str(path), win32security.SE_FILE_OBJECT,
+        win32security.DACL_SECURITY_INFORMATION | win32security.PROTECTED_DACL_SECURITY_INFORMATION,
+        None, None, descriptor.GetSecurityDescriptorDacl(), None)
 
 
 def save(cfg):
@@ -44,7 +47,7 @@ def save(cfg):
     root = data_dir()
     protect_directory(root)
     blob = win32crypt.CryptProtectData(json.dumps(cfg).encode(), "HUGINN Smart Connector",
-                                      None, None, None, 0x4)  # LOCAL_MACHINE, ACL is essential
+                                      None, None, None, 0x5)  # LOCAL_MACHINE + UI_FORBIDDEN; ACL is essential
     temporary = root / "config.tmp"
     temporary.write_bytes(blob)
     temporary.replace(root / "config.dpapi")
@@ -53,7 +56,7 @@ def save(cfg):
 def load():
     import win32crypt
     blob = (data_dir() / "config.dpapi").read_bytes()
-    cfg = json.loads(win32crypt.CryptUnprotectData(blob, None, None, None, 0)[1])
+    cfg = json.loads(win32crypt.CryptUnprotectData(blob, None, None, None, 1)[1])
     validate(cfg)
     return cfg
 
