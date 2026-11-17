@@ -10,6 +10,52 @@ from smart_connector import config
 from smart_connector.api import make_server, oracle_operation
 
 
+def test_tls_certificate_and_authenticated_health(tmp_path):
+    import datetime
+    import ipaddress
+    import socket
+    import ssl
+    from cryptography import x509
+    from cryptography.hazmat.primitives import hashes, serialization
+    from cryptography.hazmat.primitives.asymmetric import rsa
+    key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+    name = x509.Name([x509.NameAttribute(x509.NameOID.COMMON_NAME, "localhost")])
+    now = datetime.datetime.now(datetime.timezone.utc)
+    cert = (x509.CertificateBuilder().subject_name(name).issuer_name(name).public_key(key.public_key())
+            .serial_number(x509.random_serial_number()).not_valid_before(now - datetime.timedelta(minutes=1))
+            .not_valid_after(now + datetime.timedelta(days=1))
+            .add_extension(x509.SubjectAlternativeName([x509.IPAddress(ipaddress.ip_address("127.0.0.1"))]), False)
+            .sign(key, hashes.SHA256()))
+    cert_path, key_path = tmp_path / "cert.pem", tmp_path / "key.pem"
+    cert_path.write_bytes(cert.public_bytes(serialization.Encoding.PEM))
+    key_path.write_bytes(key.private_bytes(serialization.Encoding.PEM, serialization.PrivateFormat.PKCS8,
+                                           serialization.NoEncryption()))
+    with socket.socket() as sock:
+        sock.bind(("127.0.0.1", 0))
+        port = sock.getsockname()[1]
+    cfg = dict(config.defaults(), port=port, tls_cert=str(cert_path), tls_key=str(key_path))
+    server = make_server(cfg)
+    thread = threading.Thread(target=server.serve_forever)
+    thread.start()
+    try:
+        context = ssl.create_default_context(cafile=str(cert_path))
+        conn = http.client.HTTPSConnection("127.0.0.1", port, context=context, timeout=5)
+        conn.request("GET", "/health", headers={"Authorization": "Bearer " + cfg["token"]})
+        response = conn.getresponse()
+        assert response.status == 200 and json.loads(response.read())["status"] == "ok"
+        conn.close()
+        untrusted = http.client.HTTPSConnection("127.0.0.1", port, timeout=5)
+        try:
+            with pytest.raises(ssl.SSLCertVerificationError):
+                untrusted.request("GET", "/health")
+        finally:
+            untrusted.close()
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join()
+
+
 def test_remote_requires_tls_and_authorization():
     cfg = config.defaults()
     cfg["host"] = "0.0.0.0"

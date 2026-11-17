@@ -14,6 +14,8 @@ sys.path.insert(0, str(ROOT))
 from smart_connector import config
 import win32service
 import win32serviceutil
+import win32api
+import win32process
 
 APP = Path(os.environ["ProgramW6432"]) / "HUGINN Smart Connector"
 EXE = APP / "HUGINNConnector.exe"
@@ -75,13 +77,32 @@ def main():
     else:
         raise AssertionError("API accepted wrong token")
     scm = win32service.OpenSCManager(None, None, win32service.SC_MANAGER_CONNECT)
-    service = win32service.OpenService(scm, NAME, win32service.SERVICE_QUERY_CONFIG)
+    service = win32service.OpenService(scm, NAME, win32service.SERVICE_QUERY_CONFIG | win32service.SERVICE_QUERY_STATUS)
     details = win32service.QueryServiceConfig(service)
+    pid = win32service.QueryServiceStatusEx(service)["ProcessId"]
     win32service.CloseServiceHandle(service)
     win32service.CloseServiceHandle(scm)
     assert details[1] == win32service.SERVICE_AUTO_START
     assert "LocalService" in details[7]
     assert str(EXE).lower() in details[3].lower()
+    # Exercise driver import in the service account, without any configured DB or network call.
+    request = urllib.request.Request("http://127.0.0.1:8765/oracle/test",
+                                    headers={"Authorization": "Bearer " + cfg["token"]})
+    try:
+        urllib.request.urlopen(request, timeout=5)
+    except urllib.error.HTTPError as exc:
+        assert exc.code == 503 and json.load(exc)["error"] == "oracle_unavailable"
+    else:
+        raise AssertionError("Unconfigured Oracle unexpectedly succeeded")
+    process = win32api.OpenProcess(0x0400 | 0x0010, False, pid)
+    try:
+        modules = [win32process.GetModuleFileNameEx(process, module).lower()
+                   for module in win32process.EnumProcessModules(process)]
+    finally:
+        win32api.CloseHandle(process)
+    python_dlls = [name for name in modules if Path(name).name.startswith("python") and name.endswith(".dll")]
+    assert python_dlls and all(name.startswith(str(APP).lower() + "\\") for name in python_dlls)
+    assert not any(Path(name).name == "oci.dll" for name in modules)
     results.append("install + bundled Thin runtime + auto LocalService + authenticated local health: PASS")
     command(EXE, "--stop-service")
     assert win32serviceutil.QueryServiceStatus(NAME)[1] == win32service.SERVICE_STOPPED
