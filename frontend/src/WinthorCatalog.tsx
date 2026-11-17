@@ -98,7 +98,7 @@ export function WinthorCatalog({ token, onTokenChange, automatic = false }: { to
     </form>
     <div aria-live="polite">{busy && <p role="status">Aguarde a resposta do servidor local…</p>}{error && <p className="error" role="alert">{error}</p>}</div>
     {schema && <div className="catalog-schema"><h3>Estrutura para consulta</h3>
-      <p>{schema.modo === 'simulado' ? 'Estrutura simulada. Nenhuma coluna foi confirmada em Oracle real.' : schema.validado_no_oracle ? 'Colunas e tipos confirmados nos metadados desta conexão.' : 'Diagnóstico Oracle parcial: confira a causa de cada tabela abaixo.'}</p>
+      <p>{schema.modo === 'simulado' ? 'Estrutura simulada. Nenhuma coluna foi confirmada em Oracle real.' : schema.validado_no_oracle ? 'Colunas, tipos e SELECT sem linhas confirmados nesta conexão.' : 'Diagnóstico Oracle parcial: confira a causa de cada tabela abaixo.'}</p>
       <p>{schema.mensagem}</p><p>{schema.contexto?.schema_sessao && `Schema da sessão: ${schema.contexto.schema_sessao} (perfil permanece explícito)`}</p><p>{schema.owner_configurado && `Owner configurado: ${schema.owner_configurado}`}</p>
       <ul>{schema.tabelas.map(t => <li key={t.tabela}><strong>{t.tabela}</strong>: {t.colunas.map(c => `${c.nome} (${c.tipo})`).join(', ')}
         <p>{t.causa} — {t.acao}</p>

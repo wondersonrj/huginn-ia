@@ -33,6 +33,7 @@ def test_real_query_validates_metadata_and_binds_every_filter(kind, columns):
     con = MagicMock()
     cursor = con.cursor.return_value.__enter__.return_value
     cursor.fetchmany.side_effect = [columns, [(7, 'Synthetic')]]
+    cursor.description = [('CODE', SimpleNamespace(name='DB_TYPE_NUMBER')), ('NAME', SimpleNamespace(name='DB_TYPE_VARCHAR'))]
     hostile_name = "x%' OR 1=1 --_\\"
     with patch('oracledb.connect', return_value=con):
         result = winthor.search(REAL, kind, code=7, name=hostile_name, page=2, page_size=10)
@@ -40,7 +41,8 @@ def test_real_query_validates_metadata_and_binds_every_filter(kind, columns):
     assert calls[0].args == ('SET TRANSACTION READ ONLY',)
     assert calls[1].args == (winthor.METADATA_SQL, dict(owner='WINT', table_name=winthor.SPECS[kind][0],
                            code_column=columns[0][0], name_column=columns[1][0]))
-    sql, binds = calls[2].args
+    assert calls[2].args[0].endswith('WHERE 1 = 0')
+    sql, binds = calls[3].args
     assert hostile_name not in sql and '1=1' not in sql
     assert 'FETCH NEXT :limite ROWS ONLY' in sql and 'OFFSET :offset ROWS' in sql
     assert binds == dict(codigo=7, nome="%X\\%' OR 1=1 --\\_\\\\%", offset=10, limite=11)
@@ -229,6 +231,7 @@ def test_real_page_has_hard_fetch_limit_and_last_page_flag():
     con = MagicMock()
     cursor = con.cursor.return_value.__enter__.return_value
     cursor.fetchmany.side_effect = [[('CODPROD', 'NUMBER'), ('DESCRICAO', 'VARCHAR2')], [(i, 'Synthetic') for i in range(51)]]
+    cursor.description = [('CODE', SimpleNamespace(name='DB_TYPE_NUMBER')), ('NAME', SimpleNamespace(name='DB_TYPE_VARCHAR'))]
     with patch('app.winthor.connect_readonly', return_value=con):
         result = winthor.search(REAL, 'produtos', page=100, page_size=50)
     assert len(result['itens']) == 50 and result['limite_atingido'] and not result['tem_proxima']

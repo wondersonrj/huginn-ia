@@ -23,7 +23,7 @@ def exercise(page, root, version):
     page.get_by_role('button', name='Verificar conexão WinThor', exact=True).click()
     expect(page.get_by_text('ORACLE — somente leitura', exact=True)).to_be_visible()
     page.get_by_role('button', name='Diagnosticar estrutura', exact=True).click()
-    expect(page.get_by_text('Colunas e tipos confirmados nos metadados desta conexão.', exact=True)).to_be_visible()
+    expect(page.get_by_text('Colunas, tipos e SELECT sem linhas confirmados nesta conexão.', exact=True)).to_be_visible()
     for kind, code, label in [('produtos', '101', 'Produto CI Oracle'), ('fornecedores', '202', 'Fornecedor CI Oracle')]:
         page.get_by_label('Cadastro', exact=True).select_option(kind)
         page.get_by_label('Código do cadastro', exact=True).fill(code)
