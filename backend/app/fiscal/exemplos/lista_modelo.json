@@ -1,0 +1,8 @@
+{
+  "_comentario": "Modelo VAZIO. A lista real (NCM e descricao legal) e preenchida e aprovada pelo contador do cliente. O HUGINN nao inventa lista.",
+  "beneficio": "CESTA_BASICA",
+  "aprovada_por": "",
+  "aprovada_em": null,
+  "ncms": {},
+  "excluidos": {}
+}
