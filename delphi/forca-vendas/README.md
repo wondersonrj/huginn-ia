@@ -6,6 +6,6 @@ Stack: Delphi 12 (FireMonkey no app, VCL nas rotinas) + UniDAC + Oracle 19c.
 
 | Pasta | Versão | Status |
 |---|---|---|
-| [HuginnFVDiag](HuginnFVDiag/LEIA-ME.md) | 0.1 | Diagnóstico somente leitura da integradora — escrito, **não compilado** |
+| [HuginnFVDiag](HuginnFVDiag/LEIA-ME.md) | 0.1 | Diagnóstico somente leitura da integradora — **compilado** (RAD Studio 12.3), ainda não testado no banco |
 
 Próximo: v0.2 — servidor de sincronização (serviço Windows, HTTPS).

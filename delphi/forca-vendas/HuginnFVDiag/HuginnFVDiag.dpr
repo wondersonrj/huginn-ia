@@ -12,7 +12,9 @@ uses
   uPrincipal in 'uPrincipal.pas';
 
 begin
-  ReportMemoryLeaksOnShutdown := DebugHook <> 0;
+  {$IFDEF DEBUG}
+  ReportMemoryLeaksOnShutdown := True;
+  {$ENDIF}
   Application.Initialize;
   Application.MainFormOnTaskbar := True;
   Application.Title := 'HUGINN FV Diagnóstico';

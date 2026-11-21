@@ -49,7 +49,7 @@ Oracle Client/TNS em vez do modo direto: feche o programa, abra o `HuginnFVDiag.
 
 ## O que NÃO foi verificado
 
-- **Nada foi compilado nem executado:** o ambiente da HUGINN IA não tem Delphi nem UniDAC.
+- **Compilado** em RAD Studio 12.3 + UniDAC 11.0 (Win32, Debug) em 20/11/2026, sem erros, e a tela abre. **Ainda não foi conectado a um banco Oracle.**
 - Ainda falta confirmar o nome da opção `SpecificOptions['Direct']` e o formato do servidor (`host:porta/service` e `host:porta:SID`) na sua versão do UniDAC. Se a conexão falhar, me mande a mensagem exata.
 - Se o usuário não tiver privilégio em `V$VERSION`, `NLS_DATABASE_PARAMETERS` ou nos jobs, esses arquivos saem como erro no manifesto. Isso é esperado e o restante continua.
 

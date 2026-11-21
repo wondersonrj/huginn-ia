@@ -29,6 +29,7 @@ type
     function NovoBotao(const ATexto: string; AX: Integer; AClick: TNotifyEvent): TButton;
     procedure Log(const S: string);
     procedure Habilitar(A: Boolean);
+    procedure NaTela(const AProc: TThreadProcedure);
     procedure CarregarTela;
     function LerTela(out C: TFVConfig): Boolean;
     procedure BtnTestarClick(Sender: TObject);
@@ -210,6 +211,12 @@ begin
   mmoLog.Lines.Add(FormatDateTime('hh:nn:ss', Now) + '  ' + S);
 end;
 
+procedure TFrmPrincipal.NaTela(const AProc: TThreadProcedure);
+begin
+  // Executa na thread principal (tela) sem bloquear a thread de trabalho
+  TThread.Queue(nil, AProc);
+end;
+
 procedure TFrmPrincipal.Habilitar(A: Boolean);
 begin
   btnTestar.Enabled := A;
@@ -218,7 +225,7 @@ begin
   if A then
     Screen.Cursor := crDefault
   else
-    Screen.Cursor := crAppStarting;
+    Screen.Cursor := crHourGlass;
 end;
 
 procedure TFrmPrincipal.CarregarTela;
@@ -312,7 +319,7 @@ begin
         on E: Exception do
           Msg := 'FALHA na conexão: ' + E.ClassName + ' - ' + E.Message;
       end;
-      TThread.Queue(nil,
+      NaTela(
         procedure
         begin
           Log(Msg);
@@ -353,7 +360,7 @@ begin
               L: string;
             begin
               L := S;
-              TThread.Queue(nil,
+              NaTela(
                 procedure
                 begin
                   Log(L);
@@ -379,7 +386,7 @@ begin
         on E: Exception do
           Msg := 'FALHA: ' + E.ClassName + ' - ' + E.Message;
       end;
-      TThread.Queue(nil,
+      NaTela(
         procedure
         begin
           if Zip <> '' then
