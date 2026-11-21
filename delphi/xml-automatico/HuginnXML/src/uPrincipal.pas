@@ -67,6 +67,7 @@ type
     procedure BtnLicencaClick(Sender: TObject);
     procedure BtnCopiarIdClick(Sender: TObject);
     procedure MostrarLicenca;
+    function HistoricoDaChave(const Chave: string): string;
     procedure PaginasChange(Sender: TObject);
     procedure FiltroClick(Sender: TObject);
     procedure ModoChange(Sender: TObject);
@@ -526,9 +527,27 @@ begin
   end;
 end;
 
+function TFrmPrincipal.HistoricoDaChave(const Chave: string): string;
+var
+  R: TRegistroLog;
+begin
+  Result := '';
+  try
+    for R in LerHistorico(FCfg.PastaBase, 5000) do
+      if (R.Chave = Chave) and ((R.Acao = 'liberar') or (R.Acao = 'enviar_1321')) then
+      begin
+        Result := IfThen(R.Acao = 'liberar', 'liberado para a 1301', 'enviado para a 1321') +
+          ' em ' + StringReplace(Copy(R.DataHora, 1, 16), 'T', ' ', []) + ' por ' + R.Usuario;
+        Exit;   // o historico vem do mais recente para o mais antigo
+      end;
+  except
+    Result := '';
+  end;
+end;
+
 procedure TFrmPrincipal.Analisar(Reanalise: Boolean);
 var
-  OutroHash: string;
+  OutroHash, UsoAnterior: string;
 begin
   if not FTemNota then
     Exit;
@@ -569,6 +588,22 @@ begin
     FAnalise.Nivel := MaiorNivel(FAnalise.Nivel, nvPendencia);
     FAnalise.PodeLiberar := False;
     FAnalise.MotivoBloqueio := 'Mesma chave recebida com conteúdo diferente: revisar antes de liberar.';
+  end;
+
+  // XML ja usado neste HUGINN: mostra quando foi liberado/enviado (historico local).
+  UsoAnterior := HistoricoDaChave(FNota.Chave);
+  if UsoAnterior <> '' then
+  begin
+    AdicionarAchado(FAnalise.AchadosNota, NovoAchado(nvAlerta, 'Histórico', FNota.Chave, UsoAnterior,
+      'Log de operações', 'Este XML já foi usado no HUGINN: ' + UsoAnterior + '.',
+      'Confira se a nota não está sendo lançada em duplicidade.'));
+    FAnalise.Nivel := MaiorNivel(FAnalise.Nivel, nvAlerta);
+  end
+  else if FRecebido.Status = rgMesmoArquivo then
+  begin
+    AdicionarAchado(FAnalise.AchadosNota, NovoAchado(nvAlerta, 'Histórico', FNota.Chave, '',
+      'Recebidos', 'Este mesmo XML já tinha sido aberto antes no HUGINN (ainda não liberado nem enviado).', 'Apenas informativo.'));
+    FAnalise.Nivel := MaiorNivel(FAnalise.Nivel, nvAlerta);
   end;
 
   Log(IfThen(Reanalise, 'reanalisar', 'analisar'), NivelTexto(FAnalise.Nivel),

@@ -20,6 +20,8 @@ Legenda: ✅ coluna vista no trace · ⏳ pendente de confirmação
 | Q7 | Travas da 1301 por produto e filial | `PCPRODUT.DTEXCLUSAO, OBS ('PV'), OBS2 ('FL'), PRECIFICESTRANGEIRA, CODFILIAL`; `PCEST` (existe); `PCPRODFILIAL.PROIBIDAVENDA, FORALINHA` | `:FIL1..3`, lista de CODPROD (inteiros validados) | sim | ✅ (tributação, preço e endereço ⏳) |
 | Q8 | Custo da última entrada | `PCEST.CODPROD, CODFILIAL, PLIQULTENT, CUSTOULTENT, CUSTOULTENTFIN` | `:FIL`, lista de CODPROD | sim | ✅ (base do custo ⏳) |
 | Q9a | Pré-entrada existente | `PCNFENTPREENT.CHAVENFE, NUMTRANSENT, STATUS` | `:CHAVE` | — | ✅ |
+| Q9c | Nota já lançada (pela chave) | `PCNFENT.CHAVENFE, DTCANCEL, NUMTRANSENT, CODFILIAL` | `:CHAVE` | — | ✅ (vistas na consulta da 1321) |
+| Q9d | XML já na fila da 1321 | `PCNFENTXML.CHAVENFE, NUMTRANSENT, SITUACAO, TENTATIVAS` | `:CHAVE` | — | ✅ |
 | Q9b | Nota já lançada | `PCNFENT.CODFORNEC, NUMNOTA, SERIE, VLTOTAL, NUMTRANSENT, CODFILIAL`; exclui `PCNFCAN.NUMTRANSENT` | `:FORN`, `:NUM`, `:SERIE` | — | ✅ |
 
 Os campos comuns de produto são `PCPRODUT.CODPROD, DESCRICAO, UNIDADE, EMBALAGEM, CODNCMEX, QTUNITCX` ✅. O NCM é comparado pelos 8 primeiros dígitos, porque `CODNCMEX` pode trazer a exceção.

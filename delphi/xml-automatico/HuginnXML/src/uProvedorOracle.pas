@@ -532,7 +532,23 @@ begin
     finally
       Q.Free;
     end;
-    // 3) Nota de entrada ativa do mesmo fornecedor, numero e serie (exclui canceladas em PCNFCAN).
+    // 3) Nota de entrada com a mesma chave (PCNFENT.CHAVENFE/DTCANCEL, vistas na consulta da 1321).
+    Q := NovaQuery('SELECT NUMTRANSENT, CODFILIAL FROM ' + T('PCNFENT') +
+      ' WHERE CHAVENFE = :CHAVE AND DTCANCEL IS NULL AND ROWNUM <= 1');
+    try
+      Q.ParamByName('CHAVE').AsString := Chave;
+      Q.Open;
+      if not Q.Eof then
+      begin
+        Result.Resultado := jlSim;
+        Result.Mensagem := 'nota de entrada já lançada na filial ' + Q.FieldByName('CODFILIAL').AsString + '.';
+        Result.Referencia := 'Transação ' + Q.FieldByName('NUMTRANSENT').AsString;
+        Exit;
+      end;
+    finally
+      Q.Free;
+    end;
+    // 4) Nota de entrada ativa do mesmo fornecedor, numero e serie (notas antigas sem chave gravada), numero e serie (exclui canceladas em PCNFCAN).
     if CodFornec > 0 then
     begin
       Q := NovaQuery('SELECT N.NUMTRANSENT, N.CODFILIAL FROM ' + T('PCNFENT') + ' N' +

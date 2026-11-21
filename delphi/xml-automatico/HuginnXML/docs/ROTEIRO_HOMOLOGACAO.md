@@ -36,7 +36,8 @@ Libere a mista e confira:
    - confira se fornecedor, filial e produtos batem com o que a 1301 mostra na tela de itens;
    - confira o custo contra a última entrada de 2 produtos na rotina 1118 (histórico do produto);
    - libere o XML e importe na 1301 por "Arquivo em pasta". A 1301 não pode acusar nada que o HUGINN não tenha mostrado. Se acusar, anote: é uma regra que falta.
-5. Desconecte a rede ou use um usuário sem permissão: deve aparecer **falha técnica** e a liberação deve ficar bloqueada.
+5. **XML já usado:** abra o XML de uma nota que já entrou. A liberação deve ficar **bloqueada** com "nota já lançada" (busca pela chave em `PCNFENT`, além de fornecedor, número e série) ou "pré-entrada existente". Abra de novo um XML que você liberou: deve aparecer o alerta "já liberado para a 1301 em … por …".
+6. Desconecte a rede ou use um usuário sem permissão: deve aparecer **falha técnica** e a liberação deve ficar bloqueada.
 
 ## 4. Menu do WinThor
 
