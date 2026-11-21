@@ -30,7 +30,7 @@ MAX_RESPOSTA = 30 * 1024 * 1024
 
 
 class Transporte(Protocol):
-    def enviar(self, url: str, envelope: bytes) -> bytes: ...
+    def enviar(self, url: str, envelope: bytes, action: str = SOAP_ACTION) -> bytes: ...
 
 
 @dataclass
@@ -91,14 +91,14 @@ class TransporteSefaz:
         if cafile:
             self.contexto.load_verify_locations(cafile=cafile)
 
-    def enviar(self, url: str, envelope: bytes) -> bytes:
+    def enviar(self, url: str, envelope: bytes, action: str = SOAP_ACTION) -> bytes:
         alvo = urlparse(url)
         if alvo.scheme != "https" or not alvo.hostname or not alvo.hostname.endswith(".fazenda.gov.br"):
             raise ErroDistribuicao("Endereço da SEFAZ não permitido.")
         con = http.client.HTTPSConnection(alvo.hostname, alvo.port or 443, context=self.contexto, timeout=TIMEOUT_S)
         try:
             con.request("POST", alvo.path, body=envelope, headers={
-                "Content-Type": f'application/soap+xml; charset=utf-8; action="{SOAP_ACTION}"'})
+                "Content-Type": f'application/soap+xml; charset=utf-8; action="{action}"'})
             resp = con.getresponse()
             dados = resp.read(MAX_RESPOSTA + 1)
         except (OSError, http.client.HTTPException) as exc:

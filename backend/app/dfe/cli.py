@@ -16,6 +16,7 @@ from .armazenamento import Armazenamento
 from .distribuicao import ErroDistribuicao, normalizar_cnpj
 from .estado import RepositorioEstado
 from .sincronizador import sincronizar
+from .ciencia import manifestar_pendentes
 from .transporte import TransporteSefaz, contexto_tls, info_certificado, ler_certificado
 
 
@@ -28,6 +29,8 @@ def main(argv=None) -> int:
     p.add_argument("--pasta", default="dfe_dados", help="pasta de dados (Entrada, Resumos, Eventos, estado)")
     p.add_argument("--cafile", help="cadeia ICP-Brasil, se o Windows não confiar no servidor da SEFAZ")
     p.add_argument("--estado", action="store_true", help="só mostra o estado do CNPJ, sem consultar")
+    p.add_argument("--manifestar", action="store_true",
+                   help="OPCIONAL: envia 'Ciência da Operação' para os resumos pendentes (até 20)")
     a = p.parse_args(argv)
     pasta = Path(a.pasta)
     repo = RepositorioEstado(pasta / "estado_nsu.json")
@@ -47,8 +50,13 @@ def main(argv=None) -> int:
         if info.cnpj and info.cnpj[:8] != cnpj[:8]:
             print("ATENÇÃO: a raiz do CNPJ consultado é diferente da do certificado; a SEFAZ vai rejeitar.")
             return 2
-        res = sincronizar(cnpj, a.uf.upper(), a.ambiente, TransporteSefaz(contexto_tls(pfx, senha), a.cafile),
-                          repo, Armazenamento(pasta))
+        transporte = TransporteSefaz(contexto_tls(pfx, senha), a.cafile)
+        armazenamento = Armazenamento(pasta)
+        res = sincronizar(cnpj, a.uf.upper(), a.ambiente, transporte, repo, armazenamento)
+        if a.manifestar:
+            chave_priv, cert, _ = ler_certificado(pfx, senha)
+            for item in manifestar_pendentes(cnpj, a.ambiente, transporte, chave_priv, cert, armazenamento):
+                print(f"Ciência {item['chave']}: {'OK' if item['ok'] else 'FALHOU'} {item['c_stat']} {item['x_motivo']}")
     except (ErroDistribuicao, OSError) as exc:
         print(f"Erro: {exc}")
         return 1

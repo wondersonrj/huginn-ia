@@ -44,7 +44,7 @@ class FakeSefaz:
         self.respostas = list(respostas)
         self.pedidos = []
 
-    def enviar(self, url, envelope):
+    def enviar(self, url, envelope, action=None):
         self.pedidos.append((url, envelope.decode()))
         if not self.respostas:
             raise AssertionError("consulta a mais na SEFAZ")
@@ -180,3 +180,73 @@ def test_transporte_so_aceita_endereco_da_sefaz():
     from app.dfe.transporte import TransporteSefaz
     with pytest.raises(ErroDistribuicao):
         TransporteSefaz(ssl.create_default_context()).enviar("https://exemplo.com/x", b"<x/>")
+
+
+def test_evento_ciencia_assinado_confere():
+    import base64 as b64
+    import hashlib
+    from cryptography.hazmat.primitives import hashes
+    from cryptography.hazmat.primitives.asymmetric import padding
+    from lxml import etree
+    from app.dfe.manifestacao import (NS_DSIG, assinar_evento, envelope_evento, ler_retorno_evento,
+                                      montar_evento_ciencia)
+    from app.dfe.transporte import ler_certificado
+    chave_priv, cert, _ = ler_certificado(_pfx_teste("EMPRESA DEMO LTDA:11222333000181"), "senha-teste")
+    xml = assinar_evento(montar_evento_ciencia(1, CNPJ, CHAVE_A, datetime(2026, 11, 21, 20, 10)), chave_priv, cert)
+    ev = etree.fromstring(xml.encode())
+    ns = {"n": "http://www.portalfiscal.inf.br/nfe", "d": NS_DSIG}
+    inf = ev.find("n:infEvento", ns)
+    assert inf.get("Id") == f"ID210210{CHAVE_A}01"
+    assert inf.findtext("n:dhEvento", namespaces=ns) == "2026-11-21T20:10:00-03:00"
+    assert inf.findtext("n:detEvento/n:descEvento", namespaces=ns) == "Ciencia da Operacao"
+    # Digest do infEvento (C14N inclusiva) e assinatura RSA-SHA1 do SignedInfo conferem.
+    assert ev.findtext("d:Signature/d:SignedInfo/d:Reference/d:DigestValue", namespaces=ns) == \
+        b64.b64encode(hashlib.sha1(etree.tostring(inf, method="c14n")).digest()).decode()
+    si = ev.find("d:Signature/d:SignedInfo", ns)
+    cert.public_key().verify(b64.b64decode(ev.findtext("d:Signature/d:SignatureValue", namespaces=ns)),
+                             etree.tostring(si, method="c14n"), padding.PKCS1v15(), hashes.SHA1())
+    env = envelope_evento([xml], 7).decode()
+    assert "<idLote>7</idLote>" in env and "NFeRecepcaoEvento4" in env
+    ret = ('<soap:Envelope xmlns:soap="http://www.w3.org/2003/05/soap-envelope"><soap:Body>'
+           f'<retEnvEvento {NS} versao="1.00"><idLote>7</idLote><tpAmb>1</tpAmb><cOrgao>91</cOrgao><cStat>128</cStat>'
+           f'<xMotivo>Lote de evento processado</xMotivo><retEvento versao="1.00"><infEvento><tpAmb>1</tpAmb>'
+           f'<cOrgao>91</cOrgao><cStat>135</cStat><xMotivo>Evento registrado e vinculado a NF-e</xMotivo>'
+           f'<chNFe>{CHAVE_A}</chNFe><tpEvento>210210</tpEvento><nProt>891260000000001</nProt></infEvento>'
+           '</retEvento></retEnvEvento></soap:Body></soap:Envelope>').encode()
+    c_stat, _, itens = ler_retorno_evento(ret)
+    assert c_stat == "128" and itens[0].ok and itens[0].protocolo == "891260000000001"
+
+
+def test_ciencia_para_resumos_pendentes_sem_reenvio(tmp_path):
+    from app.dfe.ciencia import manifestar_pendentes
+    from app.dfe.transporte import ler_certificado
+    chave_priv, cert, _ = ler_certificado(_pfx_teste("EMPRESA DEMO LTDA:11222333000181"), "senha-teste")
+    arm = Armazenamento(tmp_path)
+    for d in ler_retorno(resposta(138, "ok", 1, 1, [doczip(1, "resNFe_v1.01.xsd", RES)])).documentos:
+        arm.gravar(d, CNPJ)
+    ret = ('<soap:Envelope xmlns:soap="http://www.w3.org/2003/05/soap-envelope"><soap:Body>'
+           f'<retEnvEvento {NS} versao="1.00"><cStat>128</cStat><xMotivo>Lote processado</xMotivo>'
+           f'<retEvento versao="1.00"><infEvento><cStat>135</cStat><xMotivo>Registrado</xMotivo><chNFe>{CHAVE_B}</chNFe>'
+           '<nProt>891260000000002</nProt></infEvento></retEvento></retEnvEvento></soap:Body></soap:Envelope>').encode()
+    sefaz = FakeSefaz([ret])
+    feito = manifestar_pendentes(CNPJ, 1, sefaz, chave_priv, cert, arm, agora=Relogio())
+    assert feito[0]["ok"] and feito[0]["chave"] == CHAVE_B and "NFeRecepcaoEvento4" in sefaz.pedidos[0][0]
+    assert manifestar_pendentes(CNPJ, 1, sefaz, chave_priv, cert, arm, agora=Relogio()) == []   # nao reenvia
+
+
+def test_filiais_da_mesma_raiz():
+    from app.dfe.filiais import filiais_da_raiz
+
+    class Cur:
+        def execute(self, sql, binds):
+            self.sql, self.binds = sql, binds
+
+        def fetchall(self):
+            return [("1", "MATRIZ", "11.222.333/0001-81", "RJ"), ("2", "FILIAL", "11222333000262", "SP"),
+                    ("3", "DUPLICADA", "11222333000262", "SP"), ("4", "LIXO", "123", "RJ")]
+    c = Cur()
+    f = filiais_da_raiz(c, "winthor", "11222333000181")
+    assert c.binds == {"raiz": "11222333"} and '"WINTHOR"."PCFILIAL"' in c.sql
+    assert [(x["codigo"], x["cnpj"], x["uf"]) for x in f] == [("1", "11222333000181", "RJ"), ("2", "11222333000262", "SP")]
+    with pytest.raises(ErroDistribuicao):
+        filiais_da_raiz(c, "x; drop", "11222333000181")
