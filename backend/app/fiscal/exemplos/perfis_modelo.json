@@ -1,0 +1,18 @@
+{
+  "_comentario": "Modelo do arquivo gerado pelo instalador. Dados ficticios.",
+  "perfis": [
+    {
+      "cnpj": "00000000000191",
+      "uf": "RJ",
+      "regime": "lucro_real",
+      "atividade": "atacadista_exclusivo",
+      "beneficios": [
+        {"codigo": "RIOLOG", "ato": "TERMO-0000/2024", "inicio": "2024-01-01", "fim": null},
+        {"codigo": "CESTA_BASICA", "ato": "Lei RJ 4.892/2006"},
+        {"codigo": "CONV_100_97", "ato": "Conv. ICMS 100/97", "fim": "2027-12-31"}
+      ],
+      "contador": {"nome": "Contador Ficticio", "crc": "RJ-000000/O", "email": "contador@exemplo.com.br"},
+      "simples_ibs_cbs_regular": null
+    }
+  ]
+}
