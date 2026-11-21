@@ -41,10 +41,20 @@ Os campos comuns de produto são `PCPRODUT.CODPROD, DESCRICAO, UNIDADE, EMBALAGE
 - **Ao gerar:** `UPDATE PCNFENTXML SET NUMTRANSENT…` numa linha que já existia. O INSERT nessa tabela não acontece no "Carregar arquivo" (trace 3). A origem está ⏳.
 - **Efeitos automáticos da rotina:** `INSERT PCFORNECFILIAL` (completa fornecedor x filial), `PCCONSUM.PROXNUMTRANSENT` e `DELETE PCLISTAPROD_TMP`.
 
+## Fluxo oficial DF-e do WinThor (traces das rotinas 1095, 1321 e 1309)
+
+Registrado como referência. O cliente **não usa a 1095**, por isso esse fluxo não entra na v0.1.
+
+- **1095 (manifestação):** lista `PCMANIFDESTINATARIO` (CODIGO, CHAVENFE, CODFILIAL, CNPJCPF, NOME, DATAEMISSAO, VLTOTALNFE, SITCONFIRMACAODEST, FEZDOWNLOADXML), grava a manifestação e pede o download (`IDREMESSADOWNLOAD`). O XML é baixado e gravado em `PCNFENTXML` por um serviço da TOTVS, fora da tela.
+- **1321 (Importação XML Automático):** roda em ciclo (intervalo 15, janela de 90 dias). Pega `PCNFENTXML` com `SITUACAO` 'A' (ou 'P' depois do intervalo), `DADOSXML` preenchido, junção com `PCMANIFDESTINATARIO` pela chave e sem `PCNFENTPREENT`/`PCNFENT` na filial. Gera a pré-entrada automaticamente.
+- **1309 (Analisar pré-entrada):** monitora a fila de `PCNFENTXML` por situação ('A', 'F'…), sem nota nem pré-entrada.
+- **Colunas confirmadas de `PCNFENTXML`:** CHAVENFE, DADOSXML, CNPJ, CODFORNEC, NUMNOTA, SERIE, DTEMISSAO, NUMTRANSENT, DTCADASTRO, SITUACAO, TENTATIVAS, NATOPERNFE, LOG_PROCESS e ORDEM.
+- **Conclusão:** a fila da 1321 **depende** de `PCMANIFDESTINATARIO`, que vem do processo da 1095. Gravar nas duas tabelas pelo HUGINN seria imitar o serviço da TOTVS, e isso não é recomendado.
+
 ## Pendências para fechar por trace ou dicionário
 
 1. Coluna de fator de conversão em `PCCODFABRICA` (opção "Utilizar fator de conversão da rotina 253").
 2. Ordem da Pesquisa Automática quando 203 e 253 não acham, e regra do EAN Dinâmico (253).
 3. Coluna de CEST do produto.
 4. Travas de tributação de entrada (`PCTABTRIBENT` / `PCTRIBENTRADA` / `PCTRIBENTPROD` conforme `PCCONSUM.USATRIBENTPORUF`), tabela de preço e endereçamento.
-5. Quem insere em `PCNFENTXML` (aba "Download XML"? DF-e? outra rotina?).
+5. ~~Quem insere em `PCNFENTXML`~~: o serviço de download da DF-e (fluxo da 1095), confirmado. Não se aplica sem a 1095.
