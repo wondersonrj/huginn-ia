@@ -17,6 +17,7 @@ uses
   uMotor in 'src\uMotor.pas',
   uRegistro in 'src\uRegistro.pas',
   uLog in 'src\uLog.pas',
+  uEntrega1321 in 'src\uEntrega1321.pas',
   uFrmConexao in 'src\uFrmConexao.pas',
   uPrincipal in 'src\uPrincipal.pas';
 

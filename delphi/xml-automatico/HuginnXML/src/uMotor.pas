@@ -20,6 +20,7 @@ type
     OrdemAutomatica: TArray<TOrigemVinculo>;  // ordem da "Pesquisa Automatica" (a confirmar)
     UsarFator253: Boolean;                    // espelha "Utilizar fator de conversao da rotina 253"
     ToleranciaCustoPct: Double;               // acima disso, alerta de custo
+    JanelaDias1321: Integer;                  // 0 = sem aviso; a 1321 so pega notas mais novas que isso
   end;
 
 function ParametrosPadrao: TParametrosMotor;
@@ -39,6 +40,19 @@ begin
   Result.OrdemAutomatica := [ovCodFab203, ovCodFab253, ovBarrasVenda, ovBarrasMaster];
   Result.UsarFator253 := True;
   Result.ToleranciaCustoPct := 5.0;
+  Result.JanelaDias1321 := 0;
+end;
+
+function DiasDesdeEmissao(const Nota: TNotaXML; out Dias: Integer): Boolean;
+var
+  D: TDateTime;
+begin
+  Result := TryEncodeDate(StrToIntDef(Copy(Nota.DataEmissao, 1, 4), 0),
+    StrToIntDef(Copy(Nota.DataEmissao, 6, 2), 0), StrToIntDef(Copy(Nota.DataEmissao, 9, 2), 0), D);
+  if Result then
+    Dias := Trunc(Date - D)
+  else
+    Dias := 0;
 end;
 
 function OrigensDoModo(const P: TParametrosMotor): TArray<TOrigemVinculo>;
@@ -573,6 +587,12 @@ begin
         'Não foi possível verificar se a nota já foi lançada: ' + A.JaLancada.Mensagem,
         'A 1301 fará a própria verificação.');
   end;
+
+  // Janela da 1321 (Importacao XML Automatico): APARTIRDIA visto no trace.
+  if (P.JanelaDias1321 > 0) and DiasDesdeEmissao(Nota, J) and (J > P.JanelaDias1321) then
+    AcharNota(A, nvAlerta, 'Emissão', Copy(Nota.DataEmissao, 1, 10), IntToStr(J) + ' dias', 'Rotina 1321',
+      Format('A 1321 só importa notas emitidas nos últimos %d dias; esta tem %d.', [P.JanelaDias1321, J]),
+      'Use a importação manual pela 1301 para esta nota.');
 
   // Buscas em lote: todas as formas, para evidencia e deteccao de conflito.
   Origens := OrigensDoModo(P);

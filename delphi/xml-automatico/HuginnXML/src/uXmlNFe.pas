@@ -283,6 +283,7 @@ begin
     Result.DataEmissao := Txt(Ide, 'dEmi');
   Result.TpNF := Txt(Ide, 'tpNF');
   Result.TpAmb := Txt(Ide, 'tpAmb');
+  Result.NatOp := Txt(Ide, 'natOp');
 
   Result.EmitCNPJ := Txt(Emit, 'CNPJ');
   if Result.EmitCNPJ = '' then

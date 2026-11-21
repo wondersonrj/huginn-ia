@@ -41,6 +41,16 @@ Os campos comuns de produto são `PCPRODUT.CODPROD, DESCRICAO, UNIDADE, EMBALAGE
 - **Ao gerar:** `UPDATE PCNFENTXML SET NUMTRANSENT…` numa linha que já existia. O INSERT nessa tabela não acontece no "Carregar arquivo" (trace 3). A origem está ⏳.
 - **Efeitos automáticos da rotina:** `INSERT PCFORNECFILIAL` (completa fornecedor x filial), `PCCONSUM.PROXNUMTRANSENT` e `DELETE PCLISTAPROD_TMP`.
 
+## Gravação opcional: fila da 1321 (`uEntrega1321.pas`, desligada por padrão)
+
+| # | Operação | Tabela | Colunas | Origem do padrão |
+|---|---|---|---|---|
+| W1 | INSERT | PCNFENTXML | CNPJ, NUMNOTA, SERIE, DTEMISSAO, DADOSXML (CLOB, texto do XML), DATA=SYSDATE, CODFUNC, CHAVENFE, SITUACAO='A', DTCADASTRO=SYSDATE, TENTATIVAS=0, NATOPERNFE | linhas reais gravadas pela 1301 (19 e 20/11) + filtro da 1321 |
+| W2 | INSERT | PCMANIFDESTINATARIO | CODIGO=DFSEQ_PCMANIFDESTINATARIO.NEXTVAL, TIPODOCUMENTO=0, DATARECEBDOCUMENTO=SYSDATE, CODFILIAL, UF (PCFILIAL), CNPJCPF (dígitos), IE, NOME, CHAVENFE, DATAEMISSAO, TIPONOTA=tpNF, FINALIDADENFE=0, SITUACAONFE=1, SITCONFIRMACAODEST=4, VLTOTALNFE, FEZDOWNLOADXML='S', AMBIENTE='P', MAQUINA, PROGRAMA='HUGINN-XML', USUARIO | linhas reais do DocFiscal e de PCSIS1301-AUTOMATICO |
+| R10 | SELECT | PCNFENTXML / PCNFENTPREENT | SITUACAO, TENTATIVAS, NUMTRANSENT, LOG_PROCESS / NUMTRANSENT | consulta da 1309 |
+
+Dicionário confirmado pelo cliente: `PCNFENTXML` sem constraints e sem triggers; `PCMANIFDESTINATARIO` com PK em CODIGO e o trigger `TRG_PCMANIFDESTINATARIO` (só auditoria em PCLOGFATURAMENTO). Charset do banco: `WE8MSWIN1252`. Nenhuma procedure insere nessas tabelas: quem grava são os executáveis (DocFiscal, 1301).
+
 ## Fluxo oficial DF-e do WinThor (traces das rotinas 1095, 1321 e 1309)
 
 Registrado como referência. O cliente **não usa a 1095**, por isso esse fluxo não entra na v0.1.

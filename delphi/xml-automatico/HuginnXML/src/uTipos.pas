@@ -47,7 +47,7 @@ type
   end;
 
   TNotaXML = record
-    Chave, Versao, Modelo, Serie, Numero, DataEmissao, TpNF, TpAmb: string;
+    Chave, Versao, Modelo, Serie, Numero, DataEmissao, TpNF, TpAmb, NatOp: string;
     EmitCNPJ, EmitNome, EmitIE, EmitUF: string;
     DestCNPJ, DestNome, DestIE: string;
     TemProtocolo: Boolean;

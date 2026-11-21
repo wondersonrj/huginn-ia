@@ -515,7 +515,24 @@ begin
     finally
       Q.Free;
     end;
-    // 2) Nota de entrada ativa do mesmo fornecedor, numero e serie (exclui canceladas em PCNFCAN).
+    // 2) XML ja na fila da 1321 (PCNFENTXML sem transacao): evita envio em dobro.
+    Q := NovaQuery('SELECT NVL(SITUACAO, ''A'') SITUACAO, NVL(TENTATIVAS, 0) TENTATIVAS FROM ' + T('PCNFENTXML') +
+      ' WHERE CHAVENFE = :CHAVE AND NUMTRANSENT IS NULL AND ROWNUM <= 1');
+    try
+      Q.ParamByName('CHAVE').AsString := Chave;
+      Q.Open;
+      if not Q.Eof then
+      begin
+        Result.Resultado := jlSim;
+        Result.Mensagem := 'XML já está na fila da 1321 (situação ' + Q.FieldByName('SITUACAO').AsString +
+          ', tentativas ' + Q.FieldByName('TENTATIVAS').AsString + ').';
+        Result.Referencia := 'PCNFENTXML';
+        Exit;
+      end;
+    finally
+      Q.Free;
+    end;
+    // 3) Nota de entrada ativa do mesmo fornecedor, numero e serie (exclui canceladas em PCNFCAN).
     if CodFornec > 0 then
     begin
       Q := NovaQuery('SELECT N.NUMTRANSENT, N.CODFILIAL FROM ' + T('PCNFENT') + ' N' +

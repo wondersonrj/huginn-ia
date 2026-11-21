@@ -28,6 +28,10 @@ type
     ToleranciaCustoPct: Double;
     PastaBase: string;        // Recebidos, Liberados e logs ficam aqui
     PastaLiberados: string;   // onde o XML original e disponibilizado para a 1301
+    // Entrega para a fila da 1321 (GRAVA no ERP: desligada por padrao)
+    Entrega1321: Boolean;
+    CodFunc: Integer;         // matricula gravada em PCNFENTXML.CODFUNC
+    JanelaDias1321: Integer;  // APARTIRDIA da 1321 (trace: 90)
     function ServidorTexto: string;
   end;
 
@@ -94,6 +98,9 @@ begin
       TPath.Combine(TPath.GetDocumentsPath, 'HUGINN\XML'));
     Result.PastaLiberados := Ini.ReadString(SEC_OPC, 'PastaLiberados',
       TPath.Combine(Result.PastaBase, 'Liberados'));
+    Result.Entrega1321 := Ini.ReadBool(SEC_OPC, 'Entrega1321', False);
+    Result.CodFunc := Ini.ReadInteger(SEC_OPC, 'CodFunc', 0);
+    Result.JanelaDias1321 := Ini.ReadInteger(SEC_OPC, 'JanelaDias1321', 90);
   finally
     Ini.Free;
   end;
@@ -123,6 +130,9 @@ begin
     Ini.WriteFloat(SEC_OPC, 'ToleranciaCustoPct', C.ToleranciaCustoPct);
     Ini.WriteString(SEC_OPC, 'PastaBase', C.PastaBase);
     Ini.WriteString(SEC_OPC, 'PastaLiberados', C.PastaLiberados);
+    Ini.WriteBool(SEC_OPC, 'Entrega1321', C.Entrega1321);
+    Ini.WriteInteger(SEC_OPC, 'CodFunc', C.CodFunc);
+    Ini.WriteInteger(SEC_OPC, 'JanelaDias1321', C.JanelaDias1321);
   finally
     Ini.Free;
   end;

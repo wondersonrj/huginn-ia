@@ -11,7 +11,7 @@ interface
 uses
   Winapi.Windows, System.SysUtils, System.Classes, System.UITypes,
   Vcl.Forms, Vcl.Controls, Vcl.StdCtrls, Vcl.ExtCtrls, Vcl.ComCtrls, Vcl.Graphics,
-  Vcl.Dialogs,
+  Vcl.Dialogs, Uni,
   uTipos, uConfig, uProvedor, uRegistro, uMotor;
 
 type
@@ -29,7 +29,7 @@ type
     // controles
     Paginas: TPageControl;
     tabConf, tabHist: TTabSheet;
-    btnAbrir, btnAnalisar, btnLiberar, btnConfig, btnHist: TButton;
+    btnAbrir, btnAnalisar, btnLiberar, btnConfig, btnHist, btnEnviar, btnSituacao: TButton;
     cmbModo: TComboBox;
     chkPendencias: TCheckBox;
     lblFonte, lblChave, lblNota, lblEmit, lblDest, lblFilial, lblStatus, lblResumo: TLabel;
@@ -56,6 +56,9 @@ type
     procedure BtnAbrirClick(Sender: TObject);
     procedure BtnAnalisarClick(Sender: TObject);
     procedure BtnLiberarClick(Sender: TObject);
+    procedure BtnEnviarClick(Sender: TObject);
+    procedure BtnSituacaoClick(Sender: TObject);
+    function ConexaoEscrita: TUniConnection;
     procedure BtnConfigClick(Sender: TObject);
     procedure BtnHistClick(Sender: TObject);
     procedure PaginasChange(Sender: TObject);
@@ -74,8 +77,8 @@ var
 implementation
 
 uses
-  Winapi.ShellAPI, System.Math, System.StrUtils, Uni,
-  uXmlNFe, uProvedorDemo, uProvedorOracle, uConexao, uLog, uFrmConexao;
+  Winapi.ShellAPI, System.Math, System.StrUtils,
+  uXmlNFe, uEntrega1321, uProvedorDemo, uProvedorOracle, uConexao, uLog, uFrmConexao;
 
 const
   COR_FUNDO    = TColor($0026140B); // #0B1426 azul-marinho
@@ -199,23 +202,13 @@ begin
   btnAbrir := NovoBotao(Barra, 'Abrir XML…', 16, 120, BtnAbrirClick);
   btnAnalisar := NovoBotao(Barra, 'Analisar', 144, 110, BtnAnalisarClick);
   btnLiberar := NovoBotao(Barra, 'Liberar XML original', 262, 170, BtnLiberarClick);
-  btnConfig := NovoBotao(Barra, 'Configuração…', 440, 120, BtnConfigClick);
+  btnEnviar := NovoBotao(Barra, 'Enviar p/ pré-entrada (1321)', 440, 200, BtnEnviarClick);
+  btnSituacao := NovoBotao(Barra, 'Situação na 1321', 648, 130, BtnSituacaoClick);
+  btnConfig := NovoBotao(Barra, 'Configuração…', 786, 120, BtnConfigClick);
   btnAnalisar.Enabled := False;
   btnLiberar.Enabled := False;
-  NovoLabel(Barra, 'Pesquisa (igual à 1301):', 580, 16, COR_SUAVE);
-  cmbModo := TComboBox.Create(Self);
-  cmbModo.Parent := Barra;
-  cmbModo.Style := csDropDownList;
-  cmbModo.SetBounds(724, 12, 250, 24);
-  for M := Low(TModoPesquisa) to High(TModoPesquisa) do
-    cmbModo.Items.Add(ModoPesquisaTexto(M));
-  cmbModo.ItemIndex := Ord(FCfg.ModoPesquisa);
-  cmbModo.OnChange := ModoChange;
-  chkPendencias := TCheckBox.Create(Self);
-  chkPendencias.Parent := Barra;
-  chkPendencias.SetBounds(992, 16, 17, 17);
-  chkPendencias.OnClick := FiltroClick;
-  NovoLabel(Barra, 'Só itens com pendência/alerta', 1012, 15, COR_TEXTO);
+  btnEnviar.Enabled := False;
+  btnSituacao.Enabled := False;
 
   Rodape := TStatusBar.Create(Self);
   Rodape.Parent := Self;
@@ -248,6 +241,20 @@ begin
   lblFilial := NovoLabel(Cab, 'Filial: —', 12, 108, COR_TEXTO);
   lblStatus := NovoLabel(Cab, '', 12, 128, COR_SUAVE, 10, True);
   lblResumo := NovoLabel(Cab, '', 620, 26, COR_TEXTO, 10);
+  NovoLabel(Cab, 'Pesquisa (igual à 1301):', 620, 4, COR_SUAVE);
+  cmbModo := TComboBox.Create(Self);
+  cmbModo.Parent := Cab;
+  cmbModo.Style := csDropDownList;
+  cmbModo.SetBounds(764, 0, 250, 24);
+  for M := Low(TModoPesquisa) to High(TModoPesquisa) do
+    cmbModo.Items.Add(ModoPesquisaTexto(M));
+  cmbModo.ItemIndex := Ord(FCfg.ModoPesquisa);
+  cmbModo.OnChange := ModoChange;
+  chkPendencias := TCheckBox.Create(Self);
+  chkPendencias.Parent := Cab;
+  chkPendencias.SetBounds(1030, 4, 17, 17);
+  chkPendencias.OnClick := FiltroClick;
+  NovoLabel(Cab, 'Só pendências/alertas', 1050, 3, COR_TEXTO);
   mmoNota := TMemo.Create(Self);
   mmoNota.Parent := Cab;
   mmoNota.SetBounds(620, 50, 600, 94);
@@ -366,6 +373,8 @@ begin
   Result.ModoPesquisa := TModoPesquisa(Max(0, cmbModo.ItemIndex));
   Result.UsarFator253 := FCfg.UsarFator253;
   Result.ToleranciaCustoPct := FCfg.ToleranciaCustoPct;
+  if FCfg.Entrega1321 then
+    Result.JanelaDias1321 := FCfg.JanelaDias1321;
 end;
 
 procedure TFrmPrincipal.BtnAbrirClick(Sender: TObject);
@@ -628,6 +637,9 @@ begin
   end;
   mmoDetalhe.Lines.Text := 'Selecione um item para ver a evidência, o cálculo e a orientação.';
   btnLiberar.Enabled := FAnalise.PodeLiberar;
+  btnEnviar.Enabled := FAnalise.PodeLiberar and FCfg.Entrega1321 and FCfg.UsarOracle and
+    (FAnalise.FilialStatus = siConfirmado);
+  btnSituacao.Enabled := FCfg.UsarOracle;
   Status(Format('Análise concluída em %s (%s). Regra %s.',
     [FormatDateTime('dd/mm/yyyy hh:nn:ss', FAnalise.DataHora), FAnalise.Provedor, VERSAO_REGRA]));
 end;
@@ -761,6 +773,124 @@ begin
     'Na 1301, use "Arquivo em pasta" com este arquivo.' + sLineBreak + 'Abrir a pasta agora?',
     mtInformation, [mbYes, mbNo], 0) = mrYes then
     ShellExecute(0, 'open', 'explorer.exe', PChar('/select,"' + Destino + '"'), nil, SW_SHOWNORMAL);
+end;
+
+function TFrmPrincipal.ConexaoEscrita: TUniConnection;
+begin
+  // Garante a senha (mesmo fluxo do provedor) e abre uma conexao propria para a operacao.
+  Provedor;
+  Result := CriarConexao(FCfg);
+  try
+    Result.Connect;
+  except
+    Result.Free;
+    raise;
+  end;
+end;
+
+procedure TFrmPrincipal.BtnEnviarClick(Sender: TObject);
+var
+  Con: TUniConnection;
+  R: TResultadoEntrega;
+  Msg: string;
+begin
+  if not (FTemNota and FTemAnalise) then
+    Exit;
+  if not FAnalise.PodeLiberar then
+  begin
+    MessageDlg('Envio bloqueado: ' + FAnalise.MotivoBloqueio, mtWarning, [mbOK], 0);
+    Exit;
+  end;
+  if not (FCfg.Entrega1321 and FCfg.UsarOracle) or (FAnalise.FilialStatus <> siConfirmado) then
+  begin
+    MessageDlg('O envio para a 1321 está desligado na configuração ou a filial não foi confirmada.', mtWarning, [mbOK], 0);
+    Exit;
+  end;
+  Msg := Format('Enviar a nota %s/%s (filial %s) para a fila da rotina 1321?' + sLineBreak + sLineBreak +
+    'O HUGINN vai GRAVAR no WinThor somente:' + sLineBreak +
+    '  • o XML original em PCNFENTXML (situação A);' + sLineBreak +
+    '  • a identificação da nota em PCMANIFDESTINATARIO.' + sLineBreak + sLineBreak +
+    'A pré-entrada (impostos, custos) será gerada pela própria 1321 no próximo ciclo.' + sLineBreak +
+    'Resultado da conferência: %s (pendentes: %d, divergências: %d).',
+    [FNota.Numero, FNota.Serie, FAnalise.Filial.Codigo, NivelTexto(FAnalise.Nivel),
+     FAnalise.CadastrosPendentes, FAnalise.Divergencias]);
+  if FAnalise.Nivel >= nvAlerta then
+    Msg := Msg + sLineBreak + sLineBreak + 'ATENÇÃO: há alertas/pendências. Confirme que você os revisou.';
+  if MessageDlg(Msg, mtConfirmation, [mbYes, mbNo], 0) <> mrYes then
+  begin
+    Log('enviar_1321_cancelado', NivelTexto(FAnalise.Nivel), 'Operador não confirmou');
+    Exit;
+  end;
+  Screen.Cursor := crHourGlass;
+  try
+    try
+      Con := ConexaoEscrita;
+      try
+        R := EnviarPara1321(Con, FCfg.Owner, FNota, FBytes, FAnalise.Filial.Codigo, FCfg.CodFunc);
+      finally
+        Con.Free;
+      end;
+    except
+      on E: EAbort do
+        Exit;
+      on E: Exception do
+      begin
+        Log('erro_enviar_1321', 'falha', E.Message);
+        Screen.Cursor := crDefault;
+        MessageDlg('Não foi possível enviar (nada foi gravado): ' + E.Message, mtError, [mbOK], 0);
+        Exit;
+      end;
+    end;
+  finally
+    Screen.Cursor := crDefault;
+  end;
+  Log('enviar_1321', NivelTexto(FAnalise.Nivel), 'Operador confirmou após revisão; ' + R.Mensagem);
+  btnEnviar.Enabled := False;
+  Status(R.Mensagem);
+  MessageDlg(R.Mensagem + sLineBreak + sLineBreak +
+    'Acompanhe pelo botão "Situação na 1321" (ou pela rotina 1309).', mtInformation, [mbOK], 0);
+end;
+
+procedure TFrmPrincipal.BtnSituacaoClick(Sender: TObject);
+var
+  Con: TUniConnection;
+  S: TSituacao1321;
+  Txt: string;
+begin
+  if not FTemNota then
+    Exit;
+  Screen.Cursor := crHourGlass;
+  try
+    try
+      Con := ConexaoEscrita;
+      try
+        S := ConsultarSituacao1321(Con, FCfg.Owner, FNota.Chave);
+      finally
+        Con.Free;
+      end;
+    except
+      on E: EAbort do
+        Exit;
+      on E: Exception do
+      begin
+        Screen.Cursor := crDefault;
+        MessageDlg('Não foi possível consultar: ' + E.Message, mtError, [mbOK], 0);
+        Exit;
+      end;
+    end;
+  finally
+    Screen.Cursor := crDefault;
+  end;
+  if S.TemPreEntrada then
+    Txt := 'PRÉ-ENTRADA GERADA: transação ' + S.TransPreEntrada + '. Siga na 1301.'
+  else if not S.Encontrado then
+    Txt := 'Esta chave não está na fila da 1321 (PCNFENTXML).'
+  else
+    Txt := Format('Na fila da 1321: situação %s, tentativas %d.', [S.Situacao, S.Tentativas]);
+  if S.LogProcesso <> '' then
+    Txt := Txt + sLineBreak + sLineBreak + 'Log da 1321:' + sLineBreak + S.LogProcesso;
+  Log('situacao_1321', IfThen(S.TemPreEntrada, 'pré-entrada ' + S.TransPreEntrada, S.Situacao), '');
+  MessageDlg(Txt, mtInformation, [mbOK], 0);
 end;
 
 procedure TFrmPrincipal.BtnConfigClick(Sender: TObject);

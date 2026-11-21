@@ -21,8 +21,8 @@ type
   private
     FTopo: Integer;
     edtHost, edtPorta, edtServico, edtUsuario, edtSenha, edtOwner,
-    edtTolerancia, edtPastaBase, edtLiberados: TEdit;
-    chkSID, chkDireto, chkSalvarSenha, chkOracle, chkFator253: TCheckBox;
+    edtTolerancia, edtPastaBase, edtLiberados, edtCodFunc, edtJanela: TEdit;
+    chkSID, chkDireto, chkSalvarSenha, chkOracle, chkFator253, chkEntrega: TCheckBox;
     function Campo(const Rotulo: string; Largura: Integer = 260; Senha: Boolean = False): TEdit;
     function Opcao(const Rotulo: string; X, Y: Integer): TCheckBox;
     procedure BtnTestarClick(Sender: TObject);
@@ -40,7 +40,7 @@ begin
   BorderStyle := bsDialog;
   Position := poMainFormCenter;
   Width := 720;
-  Height := 560;
+  Height := 690;
   Font.Name := 'Segoe UI';
   Font.Size := 9;
   FTopo := 16;
@@ -60,6 +60,11 @@ begin
   edtTolerancia := Campo('Tolerância de custo (%)', 90);
   chkFator253 := Opcao('Usar fator de conversão da rotina 253 (igual à opção da 1301)', 190, FTopo);
   Inc(FTopo, 32);
+  chkEntrega := Opcao('Enviar para a fila da 1321 (GRAVA XML em PCNFENTXML/PCMANIFDESTINATARIO)', 190, FTopo);
+  chkEntrega.Font.Style := [fsBold];
+  Inc(FTopo, 32);
+  edtCodFunc := Campo('Matrícula (CODFUNC)', 90);
+  edtJanela := Campo('Janela da 1321 (dias)', 90);
   edtPastaBase := Campo('Pasta do HUGINN (logs/recebidos)', 480);
   edtLiberados := Campo('Pasta onde liberar o XML para a 1301', 480);
 
@@ -97,6 +102,9 @@ begin
   chkFator253.Checked := C.UsarFator253;
   edtPastaBase.Text := C.PastaBase;
   edtLiberados.Text := C.PastaLiberados;
+  chkEntrega.Checked := C.Entrega1321;
+  edtCodFunc.Text := IntToStr(C.CodFunc);
+  edtJanela.Text := IntToStr(C.JanelaDias1321);
 end;
 
 function TFrmConexao.Campo(const Rotulo: string; Largura: Integer; Senha: Boolean): TEdit;
@@ -144,7 +152,15 @@ begin
   C.UsarFator253 := chkFator253.Checked;
   C.PastaBase := Trim(edtPastaBase.Text);
   C.PastaLiberados := Trim(edtLiberados.Text);
+  C.Entrega1321 := chkEntrega.Checked;
+  C.CodFunc := StrToIntDef(Trim(edtCodFunc.Text), 0);
+  C.JanelaDias1321 := StrToIntDef(Trim(edtJanela.Text), 90);
   Result := True;
+  if C.Entrega1321 and ((not C.UsarOracle) or (C.CodFunc <= 0)) then
+  begin
+    MessageDlg('O envio para a 1321 exige o Oracle ligado e a matrícula (CODFUNC) preenchida.', mtWarning, [mbOK], 0);
+    Result := False;
+  end;
   if (C.Owner <> '') and not IdentificadorValido(C.Owner) then
   begin
     MessageDlg('Schema (owner) inválido.', mtWarning, [mbOK], 0);

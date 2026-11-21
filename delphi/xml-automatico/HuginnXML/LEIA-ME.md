@@ -1,4 +1,4 @@
-# HUGINN XML Automático — v0.1.0
+# HUGINN XML Automático — v0.1.0 (+ envio para a 1321)
 
 *Seu ERP registra. HUGINN antecipa.*
 
@@ -17,6 +17,21 @@ Rotina Delphi aberta pelo menu do WinThor que **confere a NF-e de entrada antes 
    - NCM e CEST (orientativos).
 3. **Revisar.** Grade com os status OK, Alerta, Pendência e Falha técnica. O detalhe de cada item mostra a evidência, o cálculo e a ação sugerida.
 4. **Liberar XML original.** O arquivo é copiado byte a byte para a pasta de liberados e o SHA-256 é conferido depois de gravado. Na 1301, use **"Arquivo em pasta"** com esse arquivo. A 1301 faz a validação final e gera a pré-entrada.
+
+### Envio para a pré-entrada automática (rotina 1321), opcional e DESLIGADO por padrão
+
+Com **"Enviar para a fila da 1321"** ligado na Configuração, aparece o botão **Enviar p/ pré-entrada (1321)**. Depois da conferência, o HUGINN grava **somente duas linhas**, num único bloco PL/SQL (se qualquer checagem falhar, nada fica gravado):
+
+- `PCNFENTXML`: o XML original, com situação `A`, matrícula (`CODFUNC`), número, série, emissão e CNPJ;
+- `PCMANIFDESTINATARIO`: a identificação da nota, com `CODIGO` pela sequence oficial `DFSEQ_PCMANIFDESTINATARIO` e `PROGRAMA` = `HUGINN-XML`.
+
+A **pré-entrada é gerada pela própria 1321**, no ciclo dela, com o motor fiscal do WinThor. O HUGINN não grava impostos, custos nem pré-entrada. O botão **Situação na 1321** mostra a situação, as tentativas, o `LOG_PROCESS` e a transação da pré-entrada quando ela sai.
+
+Antes de gravar, o bloco confere se a chave já existe em `PCNFENTXML`, `PCMANIFDESTINATARIO`, `PCNFENTPREENT` ou `PCNFENT`. A análise também avisa quando a nota está fora da janela da 1321 (padrão 90 dias).
+
+**Permissões a mais para esse modo:** `INSERT` em PCNFENTXML e PCMANIFDESTINATARIO e `SELECT` na sequence DFSEQ_PCMANIFDESTINATARIO. O trigger `TRG_PCMANIFDESTINATARIO` grava auditoria em `PCLOGFATURAMENTO`, então o usuário também precisa poder disparar esse INSERT.
+
+**Status:** o mecanismo ainda está **pendente do teste manual** (script SQL de teste com uma nota nova). Só ligue esta opção depois que esse teste e o teste de equivalência com a 1301 passarem.
 
 ### O que bloqueia a liberação
 
