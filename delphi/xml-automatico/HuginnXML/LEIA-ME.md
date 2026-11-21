@@ -43,6 +43,18 @@ Antes de gravar, o bloco confere se a chave já existe em `PCNFENTXML`, `PCMANIF
 | Pendências (produto ou fornecedor novo, conflito de identificadores, travas da 1301) | Permitida com confirmação |
 | Alertas (custo fora da tolerância, NCM/CEST, sem fator de conversão) | Permitida com confirmação |
 
+## Licença HUGINN
+
+O identificador do produto é **`HUGINN_XML_AUTOMATICO_WINTHOR`**. Cadastre-o na aba *Produtos* do Gerador de Licenças. A validação vem de `delphi/comum/uLicencaHUGINN.pas`, que traz só a chave pública.
+
+- **Sem licença válida:** funciona o modo **demonstração**. O Oracle e o envio para a 1321 ficam bloqueados.
+- **Com licença válida:** a barra superior mostra "Licenciado para <cliente> até <data>", com aviso a partir de 15 dias do vencimento.
+- **Botões na barra superior:** **Copiar ID** e **Licença…**, que instala o `.dat` ao lado do `.exe`.
+
+## Identidade visual
+
+A paleta é a mesma do Gerador de Licenças: barra azul-marinho `#0B223D`, ciano `#22D3EE`, fundo claro `#F1F6FB`, faixa azul elétrico `#1E90FF` e a fonte Segoe UI. Para a logomarca aparecer, coloque **`huginn_logo.png`** (fundo transparente) ao lado do `.exe`. Sem esse arquivo, a barra mostra só o nome HUGINN.
+
 ## Log de operações
 
 Fica em `<Pasta do HUGINN>\logs\AAAA-MM-DD.jsonl`, com uma linha por ação: abrir, analisar, reanalisar, escolher filial, liberar, cancelar e erros. Cada linha traz data e hora, usuário e máquina do Windows, versão, regra, chave, SHA-256, filial, resultado e detalhe. **Não registra o XML, senhas nem valores fiscais.** A aba **Histórico** mostra os últimos 500 registros.

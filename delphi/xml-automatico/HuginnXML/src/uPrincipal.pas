@@ -12,7 +12,7 @@ uses
   Winapi.Windows, System.SysUtils, System.Classes, System.UITypes,
   Vcl.Forms, Vcl.Controls, Vcl.StdCtrls, Vcl.ExtCtrls, Vcl.ComCtrls, Vcl.Graphics,
   Vcl.Dialogs, Uni,
-  uTipos, uConfig, uProvedor, uRegistro, uMotor;
+  uTipos, uConfig, uProvedor, uRegistro, uMotor, uLicencaHUGINN;
 
 type
   TFrmPrincipal = class(TForm)
@@ -32,6 +32,9 @@ type
     btnAbrir, btnAnalisar, btnLiberar, btnConfig, btnHist, btnEnviar, btnSituacao: TButton;
     cmbModo: TComboBox;
     chkPendencias: TCheckBox;
+    FLic: TLicencaHUGINN;
+    lblLicenca: TLabel;
+    btnLicenca, btnCopiarId: TButton;
     lblFonte, lblChave, lblNota, lblEmit, lblDest, lblFilial, lblStatus, lblResumo: TLabel;
     mmoNota, mmoDetalhe: TMemo;
     lvItens, lvHist: TListView;
@@ -61,6 +64,9 @@ type
     function ConexaoEscrita: TUniConnection;
     procedure BtnConfigClick(Sender: TObject);
     procedure BtnHistClick(Sender: TObject);
+    procedure BtnLicencaClick(Sender: TObject);
+    procedure BtnCopiarIdClick(Sender: TObject);
+    procedure MostrarLicenca;
     procedure PaginasChange(Sender: TObject);
     procedure FiltroClick(Sender: TObject);
     procedure ModoChange(Sender: TObject);
@@ -77,21 +83,23 @@ var
 implementation
 
 uses
-  Winapi.ShellAPI, System.Math, System.StrUtils,
+  Winapi.ShellAPI, System.Math, System.StrUtils, System.IOUtils, Vcl.Clipbrd, Vcl.Imaging.pngimage,
   uXmlNFe, uEntrega1321, uProvedorDemo, uProvedorOracle, uConexao, uLog, uFrmConexao;
 
 const
-  COR_FUNDO    = TColor($0026140B); // #0B1426 azul-marinho
-  COR_PAINEL   = TColor($00100904); // #040910 quase preto
-  COR_CAMPO    = TColor($00402A1A); // #1A2A40
-  COR_TEXTO    = TColor($00F7EDE6); // #E6EDF7
-  COR_SUAVE    = TColor($00B09A8A); // #8A9AB0
-  COR_ELETRICO = TColor($00FF901E); // #1E90FF
-  COR_CIANO    = TColor($00FFE500); // #00E5FF
-  COR_OK       = TColor($0071CC2E); // #2ECC71
-  COR_ALERTA   = TColor($000FC4F1); // #F1C40F
-  COR_PEND     = TColor($00227EE6); // #E67E22
-  COR_FALHA    = TColor($003C4CE7); // #E74C3C
+  // Identidade HUGINN: mesma paleta do Gerador de Licencas (marinho + ciano, fundo claro).
+  COR_FUNDO    = TColor($00FBF6F1); // #F1F6FB fundo claro
+  COR_PAINEL   = TColor($003D220B); // #0B223D azul-marinho (barra superior)
+  COR_CAMPO    = TColor($00FFFFFF); // grades e textos sobre branco
+  COR_TEXTO    = TColor($002A170F); // #0F172A
+  COR_SUAVE    = TColor($008B7464); // #64748B
+  COR_ELETRICO = TColor($00FF901E); // #1E90FF azul eletrico (faixa e destaques)
+  COR_CIANO    = TColor($00EED322); // #22D3EE ciano
+  COR_OK       = TColor($003DA316); // #16A34A
+  COR_ALERTA   = TColor($000953B4); // #B45309
+  COR_PEND     = TColor($000C41C2); // #C2410C
+  COR_FALHA    = TColor($002626DC); // #DC2626
+  PRODUTO_LICENCA = 'HUGINN_XML_AUTOMATICO_WINTHOR';
 
 { TFrmPrincipal }
 
@@ -99,7 +107,9 @@ constructor TFrmPrincipal.Create(AOwner: TComponent);
 begin
   inherited CreateNew(AOwner);
   FCfg := CarregarConfig;
+  FLic := VerificarArquivo(ArquivoLicencaPadrao(PRODUTO_LICENCA), PRODUTO_LICENCA);
   MontarTela;
+  MostrarLicenca;
   Status('Pronto. Abra um XML de NF-e. Fonte de dados: ' + IfThen(FCfg.UsarOracle,
     'Oracle WinThor (somente leitura)', 'DEMONSTRAÇÃO (dados fictícios)') + '.');
 end;
@@ -158,6 +168,9 @@ procedure TFrmPrincipal.MontarTela;
 var
   Topo, Barra, Cab, Base: TPanel;
   Faixa: TShape;
+  Logo: TImage;
+  XLogo: Integer;
+  ArqLogo: string;
   Div1: TSplitter;
   M: TModoPesquisa;
 begin
@@ -179,9 +192,42 @@ begin
   Topo.BevelOuter := bvNone;
   Topo.ParentBackground := False;
   Topo.Color := COR_PAINEL;
-  NovoLabel(Topo, 'HUGINN', 20, 8, COR_CIANO, 20, True);
-  NovoLabel(Topo, 'XML Automático · conferência antes da importação na 1301', 146, 12, COR_TEXTO, 11);
-  NovoLabel(Topo, 'Seu ERP registra. HUGINN antecipa.   Nada é gravado no WinThor.', 146, 36, COR_SUAVE, 9);
+  // Logomarca oficial: huginn_logo.png ao lado do .exe (opcional; sem ela, so o nome).
+  XLogo := 20;
+  ArqLogo := TPath.Combine(ExtractFilePath(ParamStr(0)), 'huginn_logo.png');
+  if TFile.Exists(ArqLogo) then
+  try
+    Logo := TImage.Create(Self);
+    Logo.Parent := Topo;
+    Logo.SetBounds(16, 8, 48, 48);
+    Logo.Stretch := True;
+    Logo.Proportional := True;
+    Logo.Center := True;
+    Logo.Picture.LoadFromFile(ArqLogo);
+    XLogo := 74;
+  except
+    XLogo := 20;
+  end;
+  NovoLabel(Topo, 'HUGINN', XLogo, 8, COR_CIANO, 20, True);
+  NovoLabel(Topo, 'XML Automático · conferência antes da importação na 1301', XLogo + 126, 12, clWhite, 11, True);
+  NovoLabel(Topo, 'Seu ERP registra. HUGINN antecipa.  ·  Inteligência antes da decisão.', XLogo + 126, 38, COR_CIANO, 9);
+  lblLicenca := NovoLabel(Topo, '', 0, 10, clWhite, 9, True);
+  lblLicenca.AutoSize := False;
+  lblLicenca.Alignment := taRightJustify;
+  lblLicenca.SetBounds(Width - 640, 8, 600, 18);
+  lblLicenca.Anchors := [akTop, akRight];
+  btnLicenca := TButton.Create(Self);
+  btnLicenca.Parent := Topo;
+  btnLicenca.SetBounds(Width - 150, 30, 110, 26);
+  btnLicenca.Anchors := [akTop, akRight];
+  btnLicenca.Caption := 'Licença…';
+  btnLicenca.OnClick := BtnLicencaClick;
+  btnCopiarId := TButton.Create(Self);
+  btnCopiarId.Parent := Topo;
+  btnCopiarId.SetBounds(Width - 270, 30, 110, 26);
+  btnCopiarId.Anchors := [akTop, akRight];
+  btnCopiarId.Caption := 'Copiar ID';
+  btnCopiarId.OnClick := BtnCopiarIdClick;
 
   Faixa := TShape.Create(Self);
   Faixa.Parent := Self;
@@ -233,7 +279,7 @@ begin
   Cab.BevelOuter := bvNone;
   Cab.ParentBackground := False;
   Cab.Color := COR_FUNDO;
-  lblFonte := NovoLabel(Cab, '', 12, 6, COR_CIANO, 9, True);
+  lblFonte := NovoLabel(Cab, '', 12, 6, COR_ELETRICO, 9, True);
   lblChave := NovoLabel(Cab, 'Chave: —', 12, 26, COR_TEXTO, 10, True);
   lblNota := NovoLabel(Cab, 'Número/série: —', 12, 48, COR_TEXTO);
   lblEmit := NovoLabel(Cab, 'Emitente: —', 12, 68, COR_TEXTO);
@@ -344,6 +390,10 @@ begin
     Exit(FProv);
   if not FCfg.UsarOracle then
     FProv := TProvedorDemo.Create
+  else if not FLic.Valida then
+    raise Exception.Create('O modo Oracle exige licença HUGINN válida. ' + FLic.Mensagem + sLineBreak +
+      'Use "Copiar ID", envie o ID à HUGINN e instale o arquivo em "Licença…". ' +
+      'Sem licença, o programa funciona em modo demonstração.')
   else
   begin
     if FCfg.Senha = '' then
@@ -637,7 +687,7 @@ begin
   end;
   mmoDetalhe.Lines.Text := 'Selecione um item para ver a evidência, o cálculo e a orientação.';
   btnLiberar.Enabled := FAnalise.PodeLiberar;
-  btnEnviar.Enabled := FAnalise.PodeLiberar and FCfg.Entrega1321 and FCfg.UsarOracle and
+  btnEnviar.Enabled := FAnalise.PodeLiberar and FCfg.Entrega1321 and FCfg.UsarOracle and FLic.Valida and
     (FAnalise.FilialStatus = siConfirmado);
   btnSituacao.Enabled := FCfg.UsarOracle;
   Status(Format('Análise concluída em %s (%s). Regra %s.',
@@ -891,6 +941,72 @@ begin
     Txt := Txt + sLineBreak + sLineBreak + 'Log da 1321:' + sLineBreak + S.LogProcesso;
   Log('situacao_1321', IfThen(S.TemPreEntrada, 'pré-entrada ' + S.TransPreEntrada, S.Situacao), '');
   MessageDlg(Txt, mtInformation, [mbOK], 0);
+end;
+
+procedure TFrmPrincipal.MostrarLicenca;
+begin
+  if FLic.Valida then
+  begin
+    lblLicenca.Caption := 'Licenciado para ' + FLic.Cliente + ' até ' + DateToStr(FLic.Validade);
+    if FLic.DiasRestantes <= 15 then
+    begin
+      lblLicenca.Font.Color := TColor($000FC4F1);
+      lblLicenca.Caption := lblLicenca.Caption + Format('  (vence em %d dia(s))', [FLic.DiasRestantes]);
+    end
+    else
+      lblLicenca.Font.Color := COR_CIANO;
+  end
+  else
+  begin
+    lblLicenca.Font.Color := TColor($000FC4F1);
+    lblLicenca.Caption := 'SEM LICENÇA VÁLIDA — modo demonstração  (' + FLic.Mensagem + ')';
+  end;
+end;
+
+procedure TFrmPrincipal.BtnCopiarIdClick(Sender: TObject);
+begin
+  Clipboard.AsText := IdInstalacao;
+  MessageDlg('ID desta instalação copiado:' + sLineBreak + sLineBreak + IdInstalacao + sLineBreak + sLineBreak +
+    'Envie à HUGINN para emitir a licença do HUGINN XML Automático.', mtInformation, [mbOK], 0);
+end;
+
+procedure TFrmPrincipal.BtnLicencaClick(Sender: TObject);
+var
+  Dlg: TOpenDialog;
+  L: TLicencaHUGINN;
+begin
+  Dlg := TOpenDialog.Create(Self);
+  try
+    Dlg.Title := 'Selecione o arquivo de licença HUGINN (.dat)';
+    Dlg.Filter := 'Licença HUGINN (*.dat)|*.dat';
+    Dlg.Options := [ofFileMustExist, ofPathMustExist];
+    if not Dlg.Execute then
+      Exit;
+    try
+      L := InstalarLicenca(Dlg.FileName, PRODUTO_LICENCA);
+    except
+      on E: Exception do
+      begin
+        MessageDlg('Não foi possível instalar a licença: ' + E.Message, mtError, [mbOK], 0);
+        Exit;
+      end;
+    end;
+  finally
+    Dlg.Free;
+  end;
+  if L.Valida then
+  begin
+    FLic := L;
+    FProv := nil;
+    MostrarLicenca;
+    Log('licenca_instalada', 'válida', L.Cliente + ' até ' + DateToStr(L.Validade));
+    MessageDlg('Licença instalada. ' + L.Mensagem, mtInformation, [mbOK], 0);
+  end
+  else
+  begin
+    Log('licenca_recusada', 'inválida', L.Mensagem);
+    MessageDlg('Licença NÃO instalada: ' + L.Mensagem, mtWarning, [mbOK], 0);
+  end;
 end;
 
 procedure TFrmPrincipal.BtnConfigClick(Sender: TObject);

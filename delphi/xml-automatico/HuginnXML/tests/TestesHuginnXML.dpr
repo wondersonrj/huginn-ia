@@ -17,6 +17,7 @@ uses
   uProvedorDemo in '..\src\uProvedorDemo.pas',
   uMotor in '..\src\uMotor.pas',
   uRegistro in '..\src\uRegistro.pas',
+  uLicencaHUGINN in '..\..\..\comum\uLicencaHUGINN.pas',
   uTestesHuginnXML in 'uTestesHuginnXML.pas';
 
 var

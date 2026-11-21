@@ -56,6 +56,15 @@ type
   end;
 
   [TestFixture]
+  TTestesLicenca = class
+  public
+    [Test] procedure AssinaturaDoGeradorEhAceita;
+    [Test] procedure ArquivoAdulteradoEhRecusado;
+    [Test] procedure OutroProdutoEhRecusado;
+    [Test] procedure IdInstalacaoNoFormato;
+  end;
+
+  [TestFixture]
   TTestesRegistro = class
   public
     [Test] procedure IdempotenciaEConflitoDeHash;
@@ -65,7 +74,7 @@ type
 implementation
 
 uses
-  System.IOUtils, uValidacao, uXmlNFe, uMotor, uProvedorDemo, uRegistro;
+  System.IOUtils, uValidacao, uXmlNFe, uMotor, uProvedorDemo, uRegistro, uLicencaHUGINN;
 
 function PastaFixtures: string;
 var
@@ -403,6 +412,45 @@ begin
   Assert.AreEqual(2, A.CadastrosPendentes);
 end;
 
+{ TTestesLicenca }
+
+const
+  PRODUTO_TESTE = 'HUGINN_XML_AUTOMATICO_WINTHOR';
+
+procedure TTestesLicenca.AssinaturaDoGeradorEhAceita;
+var
+  L: TLicencaHUGINN;
+begin
+  // Assinada com a chave do Gerador para um ID ficticio: a assinatura confere,
+  // mas a instalacao e outra (nenhuma maquina real tem esse ID).
+  L := VerificarArquivo(Fx('licenca_teste.dat'), PRODUTO_TESTE);
+  Assert.IsTrue(L.Status = slOutraInstalacao, L.Mensagem);
+  Assert.AreEqual('CLIENTE TESTE LTDA', L.Cliente);
+  Assert.AreEqual('ABCD-1234-EF56-7890', L.Instalacao);
+  Assert.AreEqual(EncodeDate(2027, 12, 31), L.Validade, 0.0001);
+end;
+
+procedure TTestesLicenca.ArquivoAdulteradoEhRecusado;
+begin
+  // Mesma assinatura, validade trocada para 2099: precisa ser recusada.
+  Assert.IsTrue(VerificarArquivo(Fx('licenca_adulterada.dat'), PRODUTO_TESTE).Status = slInvalida);
+end;
+
+procedure TTestesLicenca.OutroProdutoEhRecusado;
+begin
+  Assert.IsTrue(VerificarArquivo(Fx('licenca_teste.dat'), 'RESUMO_GERENCIAL_WINTHOR').Status = slOutroProduto);
+end;
+
+procedure TTestesLicenca.IdInstalacaoNoFormato;
+var
+  Id: string;
+begin
+  Id := IdInstalacao;
+  Assert.AreEqual(19, Length(Id));
+  Assert.AreEqual('-', string(Id[5]));
+  Assert.AreEqual(Id, IdInstalacao);   // estavel
+end;
+
 { TTestesRegistro }
 
 procedure TTestesRegistro.IdempotenciaEConflitoDeHash;
@@ -442,5 +490,6 @@ initialization
   TDUnitX.RegisterTestFixture(TTestesXml);
   TDUnitX.RegisterTestFixture(TTestesMotor);
   TDUnitX.RegisterTestFixture(TTestesRegistro);
+  TDUnitX.RegisterTestFixture(TTestesLicenca);
 
 end.

@@ -2,3 +2,4 @@
 fixtures/*.xml -text
 *.pas text eol=crlf
 *.dpr text eol=crlf
+fixtures/*.dat -text
